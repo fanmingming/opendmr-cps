@@ -186,7 +186,7 @@ export async function fetchAmateurGroup() {
     } catch (e) {
         // no storage: fetched each time
     }
-    const r = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=TLE', {cache: 'no-store'});
+    const r = await fetch('https://bh3hni.cn/tle.txt', {cache: 'no-store'});
     const text = await r.text();
     const found = parseTleText(text);
     if (!r.ok || !found.length) {
@@ -214,7 +214,7 @@ export async function fetchTleApi(catalog) {
     return {name: j.name ?? '', catalog: String(catalog), line1: j.line1, line2: j.line2};
 }
 
-export const AMSAT_TLE_URL = 'https://bh3hni.cn/tle.txt';
+export const AMSAT_TLE_URL = 'https://www.amsat.org/tle/current/nasabare.txt';
 
 // AMSAT's TLE file through serve.py (/tle/amsat): amsat.org does not let other sites' pages read it. Map catalog -> TLE
 export async function fetchAmsat() {
