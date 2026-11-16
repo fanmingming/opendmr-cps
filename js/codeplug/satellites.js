@@ -133,6 +133,8 @@ export const PRESETS = [
     {name: 'SO-50', catalog: '27607', voiceRx: MHZ(436.795), voiceTx: MHZ(145.850), ctcss: 670, armCtcss: 744},
     {name: 'AO-91', catalog: '43017', voiceRx: MHZ(145.960), voiceTx: MHZ(435.250)},
     {name: 'AO-123', catalog: '61781', voiceRx: MHZ(435.400), voiceTx: MHZ(145.850), ctcss: 670, otherRx: MHZ(436.210)},
+    {name: 'JAMX01', catalog: '98248', voiceRx: MHZ(436.500), voiceTx: MHZ(145.950), ctcss: 670, otherRx: MHZ(435.175)},
+    {name: 'UNNE-1B', catalog: 'A1101', voiceRx: MHZ(436.888), voiceTx: MHZ(145.925), otherRx: MHZ(436.888)},
     {name: 'PO-101', catalog: '43678', voiceRx: MHZ(145.900), voiceTx: MHZ(437.500), ctcss: 1413},
     {name: 'RS18S', catalog: '67290', voiceRx: MHZ(437.350)},
     {name: 'RS95S', catalog: '67291', voiceRx: MHZ(436.950), voiceTx: MHZ(145.920), ctcss: 670},
@@ -212,7 +214,7 @@ export async function fetchTleApi(catalog) {
     return {name: j.name ?? '', catalog: String(catalog), line1: j.line1, line2: j.line2};
 }
 
-export const AMSAT_TLE_URL = 'https://www.amsat.org/tle/current/nasabare.txt';
+export const AMSAT_TLE_URL = 'https://bh3hni.cn/tle.txt';
 
 // AMSAT's TLE file through serve.py (/tle/amsat): amsat.org does not let other sites' pages read it. Map catalog -> TLE
 export async function fetchAmsat() {
