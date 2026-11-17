@@ -3,17 +3,18 @@
 [English](README.en.md) · 浏览器里的写频软件，用于运行 [OpenDMR](https://github.com/va3bpf/OpenDMR) 固件的
 **Baofeng DM-32 / DM-32UV**。
 
-当前版本 **0.4.0**（[版本记录](CHANGELOG.md)）
+当前版本 **0.7.0**（[版本记录](CHANGELOG.md)）
 
 ## 功能
 
-- 信道（FM / DMR / P25 / AM / USB / LSB；P25 的 NAC）、区域、联系人、TG 列表、VFO A / B、呼号和 DMR ID
+- 信道（FM / DMR / P25 / AM / USB / LSB；P25 的 NAC）、区域、联系人、TG 列表、APRS 配置、VFO A / B、呼号和 DMR ID
 - 电台菜单里的设置（通用、电台、显示、声音、APRS），功率 50 mW – 10 W，每个信道和 VFO 各自的功率
 - 业余卫星：勾选即加入电台，轨道自动下载（AMSAT / CelesTrak）
 - DMR ID 数据库：下载（ContactLists）或导入 CSV（如 radioid.net 的 user.csv），按国家筛选，写入电台后收到呼叫时显示呼号、名字、城市、州/省和国家（OpenDMR 0.4.0 及以后；全部 ID 都存得下，只写变了的部分）
 - 中文名称按 GB2312 写入，电台上正常显示
 - 用写频线直接读写电台；只写有改动的部分，电台自己的其他设置不会被覆盖
 - 码表文件保存 / 打开
+- CSV 导入 / 导出，格式和 OpenGD77 CPS 一样（信道、区域、联系人、TG 列表、APRS），可以直接导入 OpenGD77 的 CSV，也可以把别的软件的信道表改成这个格式导入（[说明](docs/csv.md)）
 - 中文 / English 界面，深色模式
 
 ## 使用

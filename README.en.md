@@ -3,11 +3,11 @@
 [中文](README.md) · A codeplug editor in the browser for the **Baofeng DM-32 / DM-32UV** running the
 [OpenDMR](https://github.com/va3bpf/OpenDMR) firmware.
 
-Current version **0.4.0** ([changelog](CHANGELOG.md)).
+Current version **0.7.0** ([changelog](CHANGELOG.md)).
 
 ## Features
 
-- Channels (FM / DMR / P25 / AM / USB / LSB; the NAC of P25), zones, contacts, TG lists, VFO A / B, callsign and DMR ID
+- Channels (FM / DMR / P25 / AM / USB / LSB; the NAC of P25), zones, contacts, TG lists, APRS configurations, VFO A / B, callsign and DMR ID
 - The radio's menu settings (general, radio, display, sound, APRS); power 50 mW – 10 W, each channel and VFO its own
 - Amateur satellites: tick one to put it in the radio; orbits fetched by themselves (AMSAT / CelesTrak)
 - DMR ID database: downloaded (ContactLists) or from a CSV (radioid.net's user.csv, for one), by country; the radio
@@ -16,7 +16,8 @@ Current version **0.4.0** ([changelog](CHANGELOG.md)).
 - Names written in GB2312, so Chinese names show on the radio
 - Reads and writes the radio over the programming cable; a write changes only what was edited, the radio's other
   settings stay as they are
-- Codeplug files: save / open
+- CSV import / export in the OpenGD77 CPS's format (channels, zones, contacts, TG lists, APRS): OpenGD77's CSV files
+  import as they are, a channel list from another CPS edited into this format too ([how](docs/csv.en.md))
 - 中文 / English interface, dark mode
 
 ## Use

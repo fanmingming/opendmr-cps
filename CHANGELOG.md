@@ -1,5 +1,30 @@
 # Changelog / 版本记录
 
+## 0.7.0 (2026-11-16)
+
+- CSV import / export in the OpenGD77 CPS's format (its File > CSV: Channels.csv, Zones.csv, Contacts.csv,
+  TG_Lists.csv, APRS.csv, the same columns and values), so its files import as they are and a channel list from another
+  CPS can be edited into them; OpenDMR's settings in columns added at the end (NAC, Step, Force DMO) and Channel Type
+  values AM, USB, LSB, P25. Export: one zip of the files; import: the zip or any of the CSV files (UTF-8 or GBK, comma,
+  semicolon or tab), Replace or Append as in the OpenGD77 CPS, references by name, nothing changed on an error (each
+  listed with its line) (docs/csv.en.md).
+  CSV 导入 / 导出，格式和 OpenGD77 CPS 的 File > CSV 一样（Channels.csv、Zones.csv、Contacts.csv、TG_Lists.csv、APRS.csv，
+  列和取值都相同）：OpenGD77 的文件可以直接导入，别的软件的信道表改成这个格式也能导入；OpenDMR 多的设置放在最后几列（NAC、步进、
+  强制直通），Channel Type 多了 AM、USB、LSB、P25。导出是一个 zip；导入可以选 zip 或任意几个 CSV（UTF-8 或 GBK，逗号、分号或
+  Tab 分隔），和 OpenGD77 一样分「替换」「追加」，引用按名称，有错误时什么都不改并列出每个错误的行号（docs/csv.md）。
+- APRS page: the 8 APRS configurations (name, SSID, path, icon, comment, fixed position and ambiguity, beacon Tx
+  frequency, Transmit QSY, 300 / 1200 baud); a channel's APRS configuration, place and talker alias Tx in its editor.
+  A "?" after an item shows its help in a bubble.
+  APRS 页面：8 组 APRS 配置（名称、SSID、路径、图标、注释、固定位置和位置模糊、信标发射频率、发送 QSY、300 / 1200 波特）；信道编辑里
+  可以选 APRS 配置、填位置、设 Talker Alias 发送。各项后面的「?」点开是说明气泡。
+- Scan lockouts page: the VFO frequencies locked out of the scans for good, and the channels with a scan skip flag.
+  扫描锁定页面：永久跳过扫描的 VFO 频率，以及设了扫描跳过的信道。
+- Faster cable: the codeplug is read packed (firmware 0.4.0 and later; 188 KB in about 1 s instead of 17 - 19 s),
+  only the changed sectors are read back before a write, and the cable speed is found in about half a second (the
+  speed of each kind of cable remembered).
+  写频线更快：码表打包读取（0.4.0 及以后的固件；188 KB 约 1 秒，原来 17 - 19 秒），写入前只回读变了的扇区，写频线速率约半秒就能
+  确定（每种写频线的速率会记住）。
+
 ## 0.6.0 (2026-11-15)
 
 - DMR IDs in OpenDMR's own format (firmware 0.4.0 and later): callsign, name, city, state and country of every ID,

@@ -2,7 +2,8 @@
 
 import {t, applyTexts, toggleLanguage} from './i18n.js';
 import {icon, applyIcons} from './icons.js';
-import {Codeplug, MODES, P25_NAC_ANY, CALL_TYPES, POWER_LEVELS, STEPS_HZ, toneChoices, frequencyValid, LOCKOUTS_MAX} from './codeplug/codeplug.js';
+import {Codeplug, MODES, P25_NAC_ANY, CALL_TYPES, POWER_LEVELS, STEPS_HZ, toneChoices, frequencyValid, LOCKOUTS_MAX,
+    TA_TX, APRS_CONFIGS_MAX, newAprsConfig} from './codeplug/codeplug.js';
 import * as L from './codeplug/layout.js';
 import {RadioLink} from './radio/link.js';
 import {GROUPS, SETTINGS, SETTINGS_SIZE} from './codeplug/settings.js';
@@ -12,6 +13,8 @@ import * as SAT from './codeplug/satellites.js';
 import * as DMR from './codeplug/dmrids.js';
 import * as ODDB from './codeplug/oddb.js';
 import * as gb from './gb2312.js';
+import * as CSV from './codeplug/csv.js';
+import {makeZip, readZip, isZip} from './codeplug/zip.js';
 
 const FILE_MAGIC = 'OPENDMR-CPS 1\n'; // our codeplug file: this line, then the window image (layout.js IMAGE_SIZE)
 
@@ -85,8 +88,64 @@ function searchBox(onInput) {
 
 /* ---- form fields ---- */
 
+// A "?" after a label: its help text (an i18n key) in a bubble over the page, the layout left as it is. One bubble
+// at a time; a click elsewhere, Escape, scrolling or resizing closes it.
+const helpBubble = {box: null, owner: null};
+
+function closeHelp() {
+    helpBubble.box?.remove();
+    helpBubble.owner?.classList.remove('on');
+    helpBubble.box = null;
+    helpBubble.owner = null;
+}
+
+function openHelp(btn, key) {
+    closeHelp();
+    const box = el('div', {class: 'help-bubble', role: 'tooltip'}, t(key));
+    document.body.append(box);
+    const r = btn.getBoundingClientRect();
+    const w = box.offsetWidth;
+    const h = box.offsetHeight;
+    const left = Math.max(8, Math.min(r.left + (r.width / 2) - 24, window.innerWidth - w - 8));
+    const below = r.bottom + 8 + h <= window.innerHeight - 8;
+    box.style.left = left + 'px';
+    box.style.top = (below ? r.bottom + 8 : r.top - 8 - h) + 'px';
+    box.style.setProperty('--arrow', (r.left + (r.width / 2) - left) + 'px');
+    box.classList.add(below ? 'below' : 'above');
+    btn.classList.add('on');
+    helpBubble.box = box;
+    helpBubble.owner = btn;
+}
+
+document.addEventListener('click', (e) => {
+    if (helpBubble.box && !helpBubble.box.contains(e.target) && e.target !== helpBubble.owner) {
+        closeHelp();
+    }
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeHelp();
+    }
+});
+window.addEventListener('resize', closeHelp);
+document.addEventListener('scroll', closeHelp, true);
+
+function helpButton(key) {
+    const btn = el('button', {type: 'button', class: 'help-btn', title: t('help'), onclick: (e) => {
+        e.preventDefault(); // not the checkbox of a label it is in
+        e.stopPropagation();
+        if (helpBubble.owner === btn) {
+            closeHelp();
+        } else {
+            openHelp(btn, key);
+        }
+    }}, '?');
+    return btn;
+}
+
 function field(label, control, opts = {}) {
-    return el('div', {class: 'field' + (opts.wide ? ' wide' : '')}, el('label', {}, label), control);
+    return el('div', {class: 'field' + (opts.wide ? ' wide' : '')},
+        el('label', {}, label, opts.help ? helpButton(opts.help) : null), control);
 }
 
 // A name: GB2312 bytes limited, the characters the radio can't show flagged
@@ -116,10 +175,10 @@ function select(options, value, onChange) {
     return s;
 }
 
-function check(label, value, onChange) {
+function check(label, value, onChange, help = null) {
     const c = el('input', {type: 'checkbox', checked: value});
     c.addEventListener('change', () => onChange(c.checked));
-    return el('label', {class: 'check'}, c, label);
+    return el('label', {class: 'check'}, c, label, help ? helpButton(help) : null);
 }
 
 function valueInput(value, onChange, parse, format = (v) => v) {
@@ -159,6 +218,7 @@ function counts() {
     $('countZones').textContent = codeplug.zones.length || '';
     $('countContacts').textContent = codeplug.contacts.length || '';
     $('countRxGroups').textContent = codeplug.rxGroups.length || '';
+    $('countAprs').textContent = codeplug.aprsConfigs.length || '';
     $('countSatellites').textContent = codeplug.satellites.length || '';
     $('countLockouts').textContent = (codeplug.lockouts.length + lockedChannels().length) || '';
 }
@@ -170,7 +230,7 @@ function render() {
     main.replaceChildren();
     ({channels: viewChannels, zones: viewZones, contacts: viewContacts, rxGroups: viewRxGroups, vfo: viewVfo,
         general: viewGeneral, radioSettings: viewRadioSettings, satellites: viewSatellites, dmrIds: viewDmrIds,
-        lockouts: viewLockouts})[tab](main);
+        lockouts: viewLockouts, aprs: viewAprs})[tab](main);
 }
 
 function pageHead(title, ...rest) {
@@ -254,6 +314,10 @@ function channelEditor(ch, opts) {
                 field(t('channelDmrId'), valueInput(ch.dmrId || '', (v) => set('dmrId')(v || 0),
                     (s) => (s === '' ? 0 : intRange(1, 16777215)(s)), (v) => v || ''), {wide: true}),
                 check(t('forceDmo'), ch.forceDmo, set('forceDmo')),
+                p25 ? null : field(t('taTx1'), select(TA_TX.map((v, i) => [i, v]), ch.taTx1, (v) => set('taTx1')(+v)),
+                    {help: 'helpTaTx'}),
+                p25 ? null : field(t('taTx2'), select(TA_TX.map((v, i) => [i, v]), ch.taTx2, (v) => set('taTx2')(+v)),
+                    {help: 'helpTaTx'}),
             )),
             el('div', {class: 'section'}, el('h4', {}, t('secOther')), el('div', {class: 'fields'},
                 field(t('step'), select(STEPS_HZ.map((s) => [s, (s / 1000) + ' kHz']), ch.step, (v) => set('step')(+v))),
@@ -263,6 +327,13 @@ function channelEditor(ch, opts) {
                 opts.vfo ? null : check(t('zoneSkip'), ch.zoneSkip, set('zoneSkip')),
                 opts.vfo ? null : check(t('allSkip'), ch.allSkip, set('allSkip')),
                 check(t('vox'), ch.vox, set('vox')),
+                field(t('aprsConfig'), select([[0, t('none')], ...codeplug.aprsConfigs.map((c) => [c.index, c.name])],
+                    ch.aprs, (v) => set('aprs')(+v)), {wide: true, help: 'helpChannelAprs'}),
+                opts.vfo ? null : field(t('latitude'), valueInput(ch.latitude, set('latitude'), parseDegrees(90), showDegrees),
+                    {help: 'helpChannelPlace'}),
+                opts.vfo ? null : field(t('longitude'), valueInput(ch.longitude, set('longitude'), parseDegrees(180), showDegrees),
+                    {help: 'helpChannelPlace'}),
+                opts.vfo ? null : check(t('useLocation'), ch.useLocation, set('useLocation'), 'helpUseLocation'),
             )),
         ];
         box.replaceChildren(...sections);
@@ -718,6 +789,160 @@ function viewContacts(main) {
                     el('table', {class: 'grid'},
                         el('thead', {}, el('tr', {}, ['number', 'name', 'id', 'callType', 'tsOverride']
                             .map((k) => el('th', {}, t(k))))),
+                        body))),
+            drawer));
+    fill();
+    openDrawer();
+}
+
+/* ---- APRS configurations ---- */
+
+// Decimal degrees: '' none (null)
+function parseDegrees(max) {
+    return (s) => {
+        if (s === '' || Number(s.replace(',', '.')) === 0) {
+            return null;
+        }
+        const v = Number(s.replace(',', '.'));
+        return (Number.isFinite(v) && Math.abs(v) <= max) ? Math.round(v * 10000) / 10000 : null;
+    };
+}
+
+const showDegrees = (v) => ((v === null || v === undefined) ? '' : String(v));
+
+// Letters, digits and signs, at most max characters
+function asciiInput(value, max, onChange, upper = true) {
+    const input = el('input', {value, maxLength: max, spellcheck: false});
+    input.addEventListener('change', () => {
+        let v = input.value.replace(/[^\x20-\x7E]/g, '').slice(0, max);
+        v = upper ? v.toUpperCase() : v;
+        input.value = v;
+        onChange(v);
+    });
+    return input;
+}
+
+function viewAprs(main) {
+    let selected = null;
+    const body = el('tbody');
+    const drawer = el('div', {class: 'card drawer'});
+    const touched = () => {
+        codeplug.aprsDirty = true;
+    };
+    const path = (c) => [c.via1 && `${c.via1}-${c.via1Ssid}`, c.via2 && `${c.via2}-${c.via2Ssid}`].filter(Boolean).join(',');
+
+    function row(c) {
+        const tr = el('tr', {class: c === selected ? 'selected' : '', onclick: () => {
+            selected = c;
+            body.querySelectorAll('tr').forEach((r) => r.classList.remove('selected'));
+            tr.classList.add('selected');
+            openDrawer();
+        }},
+        el('td', {class: 'num'}, c.index),
+        el('td', {class: 'name'}, c.name),
+        el('td', {class: 'mono'}, `${codeplug.general.callsign || '—'}-${c.ssid}`),
+        el('td', {class: 'mono dim'}, path(c)),
+        el('td', {class: 'mono'}, (c.iconTable ? '\\' : '/') + String.fromCharCode(c.icon + 33)),
+        el('td', {class: 'dim'}, c.comment),
+        el('td', {class: 'dim'}, codeplug.channels.filter((ch) => ch.aprs === c.index).length || ''));
+        c.row = tr;
+        return tr;
+    }
+
+    function fill() {
+        body.replaceChildren(...codeplug.aprsConfigs.map(row));
+        if (!codeplug.aprsConfigs.length) {
+            body.append(el('tr', {}, el('td', {colspan: 7, class: 'empty'}, '—')));
+        }
+    }
+
+    function openDrawer() {
+        const c = selected;
+        if (!c || !codeplug.aprsConfigs.includes(c)) {
+            drawer.replaceChildren(el('div', {class: 'empty'}, t('pickItem')));
+            return;
+        }
+        const set = (k, redraw = false) => (v) => {
+            c[k] = v;
+            touched();
+            const fresh = row(c);
+            fresh.classList.add('selected');
+            c.row.replaceWith(fresh);
+            drawer.querySelector('h3').textContent = c.name;
+            if (redraw) {
+                openDrawer();
+            }
+        };
+        const ssids = Array.from({length: 16}, (_, i) => [i, i]);
+        drawer.replaceChildren(
+            el('div', {class: 'drawer-head'}, el('h3', {}, c.name),
+                iconButton('trash', t('delete'), () => {
+                    codeplug.aprsConfigs = codeplug.aprsConfigs.filter((x) => x !== c);
+                    for (const ch of [...codeplug.channels, ...codeplug.vfos]) {
+                        if (ch.aprs === c.index) {
+                            ch.aprs = 0;
+                        }
+                    }
+                    touched();
+                    selected = null;
+                    counts();
+                    fill();
+                    openDrawer();
+                }, 'danger')),
+            el('div', {class: 'section'}, el('h4', {}, t('secBasic')), el('div', {class: 'fields'},
+                field(t('name'), asciiInput(c.name, 8, set('name')), {help: 'helpAprsName'}),
+                field(t('ssid'), select(ssids, c.ssid, (v) => set('ssid')(+v)), {help: 'helpSsid'}),
+                field(t('via1'), asciiInput(c.via1, 6, set('via1')), {help: 'helpVia1'}),
+                field('SSID', select(ssids, c.via1Ssid, (v) => set('via1Ssid')(+v)), {help: 'helpViaSsid'}),
+                field(t('via2'), asciiInput(c.via2, 6, set('via2')), {help: 'helpVia2'}),
+                field('SSID', select(ssids, c.via2Ssid, (v) => set('via2Ssid')(+v)), {help: 'helpViaSsid'}),
+                field(t('iconTable'), select([[0, t('iconPrimary')], [1, t('iconAlternate')]], c.iconTable,
+                    (v) => set('iconTable')(+v)), {help: 'helpIconTable'}),
+                field(t('aprsIcon'), valueInput(c.icon, set('icon'), (s) => ((s.length === 1 && s >= '!' && s <= '~') ?
+                    s.charCodeAt(0) - 33 : null), (v) => String.fromCharCode(v + 33)), {help: 'helpAprsIcon'}),
+                field(t('comment'), asciiInput(c.comment, 24, set('comment'), false), {wide: true, help: 'helpComment'}),
+                field(t('baud'), select([[0, '1200'], [1, '300']], c.baud300 ? 1 : 0, (v) => set('baud300')(v === '1')),
+                    {help: 'helpBaud'}),
+                field(t('beaconFreq'), valueInput(c.txFrequency, set('txFrequency'),
+                    (s) => (s === '' ? 0 : parseMhz(s)), (v) => (v ? mhz(v) : '')), {help: 'helpBeaconFreq'}),
+                check(t('transmitQsy'), c.qsy, set('qsy'), 'helpTransmitQsy'),
+            )),
+            el('div', {class: 'section'}, el('h4', {}, t('aprsPosition')), el('div', {class: 'fields'},
+                check(t('usePosition'), c.usePosition, set('usePosition', true), 'helpUsePosition'),
+                field(t('ambiguity'), select([...Array(8).keys()].map((i) => [i, i]), c.ambiguity,
+                    (v) => set('ambiguity')(+v)), {help: 'helpAmbiguity'}),
+                c.usePosition ? field(t('latitude'), valueInput(c.latitude, set('latitude'), parseDegrees(90), showDegrees),
+                    {help: 'helpLatitude'}) : null,
+                c.usePosition ? field(t('longitude'), valueInput(c.longitude, set('longitude'), parseDegrees(180), showDegrees),
+                    {help: 'helpLongitude'}) : null,
+            )));
+    }
+
+    main.append(
+        pageHead(t('aprsConfigs'), el('span', {class: 'spacer'}),
+            button(t('add'), 'plus', () => {
+                const used = new Set(codeplug.aprsConfigs.map((c) => c.index));
+                const index = [...Array(APRS_CONFIGS_MAX).keys()].map((i) => i + 1).find((i) => !used.has(i));
+                if (!index) {
+                    toast(t('aprsFull'));
+                    return;
+                }
+                const c = {...newAprsConfig('APRS' + index), index};
+                codeplug.aprsConfigs.push(c);
+                codeplug.aprsConfigs.sort((a, b) => a.index - b.index);
+                touched();
+                selected = c;
+                counts();
+                fill();
+                openDrawer();
+            }, 'primary')),
+        el('p', {class: 'muted'}, t('aprsHelp')),
+        el('div', {class: 'work'},
+            el('div', {class: 'card', style: 'flex:1;min-width:0'},
+                el('div', {class: 'table-wrap'},
+                    el('table', {class: 'grid'},
+                        el('thead', {}, el('tr', {}, [t('number'), t('name'), t('ssid'), 'Via', t('aprsIcon'), t('comment'),
+                            t('channels')].map((k) => el('th', {}, k)))),
                         body))),
             drawer));
     fill();
@@ -1828,6 +2053,80 @@ async function openFile(file) {
     render();
 }
 
+/* ---- CSV (the OpenGD77 CPS's files) ---- */
+
+function exportCsv() {
+    codeplug.store();
+    const enc = new TextEncoder();
+    const blob = makeZip(CSV.exportCsv(codeplug).map((f) => ({name: f.name, data: enc.encode(f.text)})));
+    const a = el('a', {href: URL.createObjectURL(blob), download: (codeplug.general.callsign || 'codeplug') + '-csv.zip'});
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// A dialog: its body, then buttons [label, value, cls]; resolves with the value of the button pressed (null: closed)
+function dialog(title, body, buttons) {
+    return new Promise((resolve) => {
+        const d = el('dialog', {class: 'dialog'}, el('h3', {}, title), body,
+            el('div', {class: 'dialog-actions'}, buttons.map(([label, value, cls]) =>
+                el('button', {class: cls ?? '', onclick: () => {
+                    d.close();
+                    resolve(value);
+                }}, label))));
+        d.addEventListener('cancel', () => resolve(null));
+        d.addEventListener('close', () => d.remove());
+        document.body.append(d);
+        d.showModal();
+    });
+}
+
+async function importCsv(fileList) {
+    const files = [];
+    try {
+        for (const f of fileList) {
+            const bytes = new Uint8Array(await f.arrayBuffer());
+            if (isZip(bytes)) {
+                for (const z of await readZip(bytes)) {
+                    if (/\.csv$/i.test(z.name)) {
+                        files.push({name: z.name.split('/').pop(), text: CSV.decodeCsvBytes(z.data)});
+                    }
+                }
+            } else {
+                files.push({name: f.name, text: CSV.decodeCsvBytes(bytes)});
+            }
+        }
+    } catch (e) {
+        toast(t('error') + ': ' + e.message, 6000);
+        return;
+    }
+    const names = files.map((f) => f.name).join(', ') || '—';
+    const mode = await dialog(t('csvImport'), el('div', {},
+        el('p', {}, t('csvFiles') + names),
+        el('p', {class: 'muted'}, t('csvReplaceHelp')),
+        el('p', {class: 'muted'}, t('csvAppendHelp'))),
+    [[t('cancel'), null, 'ghost'], [t('csvAppend'), 'append'], [t('csvReplace'), 'replace', 'primary']]);
+    if (!mode) {
+        return;
+    }
+    const report = CSV.importCsv(codeplug, files, {replace: mode === 'replace', newChannel: (n) => {
+        const ch = Codeplug.newChannel(n);
+        ch.power = 0; // the CSV's Power ("Master": the radio's)
+        return ch;
+    }});
+    selectedChannel = null;
+    render();
+    const counts = Object.entries(report.counts).map(([k, n]) => `${CSV.FILES[k]}: ${n}`).join(' · ');
+    const lines = [...report.errors, ...report.warnings];
+    if (!lines.length) {
+        toast(t('csvImported') + ' ' + counts, 6000);
+        return;
+    }
+    await dialog(report.errors.length ? t('csvFailed') : t('csvImported'), el('div', {},
+        report.errors.length ? null : el('p', {}, counts),
+        el('textarea', {rows: Math.min(16, lines.length + 1), readOnly: true, value: lines.join('\n')})),
+    [[t('close'), null, 'primary']]);
+}
+
 /* ---- start ---- */
 
 function init() {
@@ -1842,6 +2141,14 @@ function init() {
     $('btnRead').addEventListener('click', readRadio);
     $('btnWrite').addEventListener('click', writeRadio);
     $('btnSave').addEventListener('click', saveFile);
+    $('btnCsvExport').addEventListener('click', exportCsv);
+    $('btnCsvImport').addEventListener('click', () => $('csvInput').click());
+    $('csvInput').addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            importCsv([...e.target.files]);
+        }
+        e.target.value = '';
+    });
     $('btnOpen').addEventListener('click', () => $('fileInput').click());
     $('fileInput').addEventListener('change', (e) => {
         if (e.target.files[0]) {

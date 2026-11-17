@@ -47,7 +47,11 @@ const LOCKOUT_BLOCK_LENGTH = 4 + (4 * LOCKOUTS_MAX);
 const FLAG1_OPTIONAL_DMR_ID = 0x80; // libre_dmr_flag1 (byte 38)
 const FLAG1_NO_BEEP = 0x40;
 const FLAG1_NO_ECO = 0x20;
+const FLAG1_USE_LOCATION = 0x08;
 const FLAG1_FORCE_DMO = 0x04;
+const TA_TX_TS1_SHIFT = 0;          // flag1 (byte 48): talker alias Tx, 2 bits a timeslot: off, APRS, text, both
+const TA_TX_TS2_SHIFT = 2;
+export const TA_TX = ['Off', 'APRS', 'Text', 'APRS+Text'];
 const FLAG2_TS2 = 0x40;             // byte 49
 const FLAG4_VOX = 0x40;             // byte 51
 const FLAG4_ZONE_SKIP = 0x20;
@@ -99,6 +103,90 @@ export function toneChoices() {
         ...DCS.map((c) => 'D' + c.toString(16).padStart(3, '0') + 'I')];
 }
 
+// A channel's or APRS configuration's place (OpenDMR channel_screen.c fixed24_degrees): 24 bits, sign 23, degrees
+// 22:15, 1/10000 degree 14:0; null: none (0)
+export function degreesFromFixed24(f) {
+    if (f === 0) {
+        return null;
+    }
+    const value = ((f & 0x7FFFFF) >> 15) + ((f & 0x7FFF) / 10000);
+    return (f & 0x800000) ? -value : value;
+}
+
+export function degreesToFixed24(v) {
+    if (v === null || v === undefined || v === 0) {
+        return 0;
+    }
+    const a = Math.abs(v);
+    let deg = Math.floor(a);
+    let frac = Math.round((a - deg) * 10000);
+    if (frac >= 10000) {
+        deg++;
+        frac = 0;
+    }
+    return ((v < 0) ? 0x800000 : 0) | ((deg & 0xFF) << 15) | frac;
+}
+
+// APRS configurations (codeplug.h codeplug_aprs_config_t, 64 bytes, 8 of them): in use with a name and the magic
+export const APRS_CONFIG_SIZE = 64;
+export const APRS_CONFIGS_MAX = 8;
+const APRS_MAGIC = [0x4152, 0x4153];
+const u24 = (b, at) => b[at] | (b[at + 1] << 8) | (b[at + 2] << 16);
+const setU24 = (b, at, v) => {
+    b[at] = v & 0xFF;
+    b[at + 1] = (v >> 8) & 0xFF;
+    b[at + 2] = (v >> 16) & 0xFF;
+};
+const ascii = (b, at, n) => String.fromCharCode(...b.subarray(at, at + n)).replace(/[\u0000\u00FF].*$/s, '');
+function setAscii(b, at, n, text) {
+    fill(b, at, n, 0xFF);
+    [...String(text ?? '')].slice(0, n).forEach((c, i) => {
+        b[at + i] = c.charCodeAt(0) & 0x7F;
+    });
+}
+
+export function newAprsConfig(name = 'APRS') {
+    return {name, ssid: 7, via1: 'WIDE1', via1Ssid: 1, via2: 'WIDE2', via2Ssid: 1, iconTable: 0, icon: 58, // '[': a person (a handheld)
+        comment: '', ambiguity: 0, usePosition: false, latitude: null, longitude: null, txFrequency: 0, qsy: false,
+        baud300: false, raw: null};
+}
+
+function readAprsConfig(r) {
+    return {
+        name: ascii(r, 0, 8), ssid: r[8],
+        latitude: degreesFromFixed24(u24(r, 9)), longitude: degreesFromFixed24(u24(r, 12)),
+        via1: ascii(r, 15, 6), via1Ssid: r[21], via2: ascii(r, 22, 6), via2Ssid: r[28],
+        iconTable: r[29] ? 1 : 0, icon: r[30], comment: ascii(r, 31, 24),
+        txFrequency: u32(r, 55) * 10, // Hz, 0: the channel's
+        baud300: (r[61] & 0x01) !== 0, usePosition: (r[61] & 0x02) !== 0, qsy: (r[61] & 0x04) !== 0,
+        ambiguity: (r[61] >> 4) & 0x07,
+        raw: r,
+    };
+}
+
+function writeAprsConfig(c) {
+    const r = c.raw ?? new Uint8Array(APRS_CONFIG_SIZE).fill(0);
+    setAscii(r, 0, 8, c.name.toUpperCase());
+    r[8] = c.ssid;
+    setU24(r, 9, degreesToFixed24(c.latitude));
+    setU24(r, 12, degreesToFixed24(c.longitude));
+    setAscii(r, 15, 6, c.via1.toUpperCase());
+    r[21] = c.via1Ssid;
+    setAscii(r, 22, 6, c.via2.toUpperCase());
+    r[28] = c.via2Ssid;
+    r[29] = c.iconTable;
+    r[30] = c.icon;
+    setAscii(r, 31, 24, c.comment);
+    setU32(r, 55, Math.round(c.txFrequency / 10));
+    r[61] = (r[61] & 0x88) | (c.baud300 ? 0x01 : 0) | (c.usePosition ? 0x02 : 0) | (c.qsy ? 0x04 : 0) |
+        ((c.ambiguity & 0x07) << 4);
+    if (!APRS_MAGIC.includes(u16(r, 62))) {
+        setU16(r, 62, APRS_MAGIC[1]);
+    }
+    c.raw = r;
+    return r;
+}
+
 export class Codeplug {
     constructor(img) {
         this.img = img ?? Codeplug.blankImage();
@@ -135,7 +223,15 @@ export class Codeplug {
             }
         }
         this.lockoutsDirty = false;
-        this.customRanges = []; // the custom data bytes store() changed
+        this.customRanges = []; // the custom data bytes store() changed (and the APRS configurations)
+        this.aprsConfigs = []; // {index (1 - 8), ...}
+        for (let i = 1; i <= APRS_CONFIGS_MAX; i++) {
+            const at = L.APRS_CONFIGS + ((i - 1) * APRS_CONFIG_SIZE);
+            if (img[at] !== 0xFF && APRS_MAGIC.includes(u16(img, at + 62))) {
+                this.aprsConfigs.push({index: i, ...readAprsConfig(img.slice(at, at + APRS_CONFIG_SIZE))});
+            }
+        }
+        this.aprsDirty = false;
         this.channelsPerZone = (img[L.ZONE_FORMAT_CHECK + 15] <= 0x04) ? 80 : 16;
         this.general = {
             callsign: readName(img, L.CALLSIGN, 8),
@@ -244,6 +340,11 @@ export class Codeplug {
             forceDmo: (raw[38] & FLAG1_FORCE_DMO) !== 0,
             dmrId: optionalId,       // 0: the radio's
             step: STEPS_HZ[(raw[54] >> 4) % STEPS_HZ.length],
+            taTx1: (raw[48] >> TA_TX_TS1_SHIFT) & 0x03, // TA_TX index
+            taTx2: (raw[48] >> TA_TX_TS2_SHIFT) & 0x03,
+            latitude: degreesFromFixed24(raw[26] | (raw[28] << 8) | (raw[29] << 16)), // null: none
+            longitude: degreesFromFixed24(raw[30] | (raw[31] << 8) | (raw[36] << 16)),
+            useLocation: (raw[38] & FLAG1_USE_LOCATION) !== 0,
             raw,
         };
     }
@@ -274,9 +375,20 @@ export class Codeplug {
             (ch.wide ? FLAG4_25K : 0) | (ch.rxOnly ? FLAG4_RX_ONLY : 0) | (ch.zoneSkip ? FLAG4_ZONE_SKIP : 0) |
             (ch.allSkip ? FLAG4_ALL_SKIP : 0) | (ch.vox ? FLAG4_VOX : 0);
         raw[55] = ch.squelch;
-        raw[38] = (raw[38] & ~(FLAG1_NO_BEEP | FLAG1_NO_ECO | FLAG1_FORCE_DMO | FLAG1_OPTIONAL_DMR_ID)) |
-            (ch.beep ? 0 : FLAG1_NO_BEEP) | (ch.eco ? 0 : FLAG1_NO_ECO) | (ch.forceDmo ? FLAG1_FORCE_DMO : 0) |
-            (ch.dmrId ? FLAG1_OPTIONAL_DMR_ID : 0);
+        raw[38] = (raw[38] & ~(FLAG1_NO_BEEP | FLAG1_NO_ECO | FLAG1_FORCE_DMO | FLAG1_OPTIONAL_DMR_ID |
+            FLAG1_USE_LOCATION)) | (ch.beep ? 0 : FLAG1_NO_BEEP) | (ch.eco ? 0 : FLAG1_NO_ECO) |
+            (ch.forceDmo ? FLAG1_FORCE_DMO : 0) | (ch.dmrId ? FLAG1_OPTIONAL_DMR_ID : 0) |
+            (ch.useLocation ? FLAG1_USE_LOCATION : 0);
+        raw[48] = (raw[48] & 0xF0) | ((ch.taTx1 & 0x03) << TA_TX_TS1_SHIFT) | ((ch.taTx2 & 0x03) << TA_TX_TS2_SHIFT);
+        // the place: written only when changed (the bytes as another CPS left them otherwise)
+        if (degreesFromFixed24(raw[26] | (raw[28] << 8) | (raw[29] << 16)) !== ch.latitude) {
+            const lat = degreesToFixed24(ch.latitude);
+            [raw[26], raw[28], raw[29]] = [lat & 0xFF, (lat >> 8) & 0xFF, (lat >> 16) & 0xFF];
+        }
+        if (degreesFromFixed24(raw[30] | (raw[31] << 8) | (raw[36] << 16)) !== ch.longitude) {
+            const lon = degreesToFixed24(ch.longitude);
+            [raw[30], raw[31], raw[36]] = [lon & 0xFF, (lon >> 8) & 0xFF, (lon >> 16) & 0xFF];
+        }
         if (ch.dmrId) {
             raw[39] = (ch.dmrId >> 16) & 0xFF;
             raw[40] = (ch.dmrId >> 8) & 0xFF;
@@ -305,7 +417,8 @@ export class Codeplug {
             number, name: 'CH' + number, mode: 'FM', rx: 145500000, tx: 145500000, rxTone: '', txTone: '',
             power: 0, tot: 0, colourCode: 1, nac: P25_NAC_DEFAULT, timeslot: 1, contact: 0, rxGroup: 0, aprs: 0, wide: true,
             rxOnly: false, zoneSkip: false, allSkip: false, vox: false, squelch: 0, beep: true, eco: true,
-            forceDmo: false, dmrId: 0, step: 12500, raw: null,
+            forceDmo: false, dmrId: 0, step: 12500, taTx1: 0, taTx2: 0, latitude: null, longitude: null,
+            useLocation: false, raw: null,
         };
     }
 
@@ -406,6 +519,19 @@ export class Codeplug {
         }
         if (this.lockoutsDirty) {
             this.storeLockouts();
+        }
+        if (this.aprsDirty) { // the APRS configurations: the radio's are written back otherwise
+            const byIndex = new Map(this.aprsConfigs.map((c) => [c.index, c]));
+            for (let i = 1; i <= APRS_CONFIGS_MAX; i++) {
+                const at = L.APRS_CONFIGS + ((i - 1) * APRS_CONFIG_SIZE);
+                const c = byIndex.get(i);
+                if (c) {
+                    img.set(writeAprsConfig(c), at);
+                } else {
+                    fill(img, at, APRS_CONFIG_SIZE, 0xFF);
+                }
+            }
+            this.customRanges.push([L.APRS_CONFIGS, L.APRS_CONFIGS + (APRS_CONFIGS_MAX * APRS_CONFIG_SIZE)]);
         }
         writeName(img, L.CALLSIGN, 8, this.general.callsign.toUpperCase());
         writeBcdBigEndian(img, L.DMR_ID, this.general.dmrId);

@@ -16,6 +16,8 @@
         <button id="btnNew" class="ghost" data-icon="new"><span data-i18n="newCodeplug">New</span></button>
         <button id="btnOpen" class="ghost" data-icon="open"><span data-i18n="openFile">Open file</span></button>
         <button id="btnSave" class="ghost" data-icon="save"><span data-i18n="saveFile">Save file</span></button>
+        <button id="btnCsvImport" class="ghost" data-icon="open" title="Channels.csv, Zones.csv, Contacts.csv, TG_Lists.csv, APRS.csv"><span data-i18n="csvImportButton">Import CSV</span></button>
+        <button id="btnCsvExport" class="ghost" data-icon="save" title="Channels.csv, Zones.csv, Contacts.csv, TG_Lists.csv, APRS.csv (zip)"><span data-i18n="csvExportButton">Export CSV</span></button>
     </div>
     <div class="group">
         <button id="btnConnect" data-icon="plug"><span data-i18n="connect">Connect</span></button>
@@ -26,6 +28,7 @@
         <button id="btnLang" class="ghost" data-icon="globe"><span data-i18n="language">English</span></button>
     </div>
     <input type="file" id="fileInput" accept=".opendmr" hidden>
+    <input type="file" id="csvInput" accept=".csv,.zip,text/csv" multiple hidden>
 </header>
 
 <div class="statusbar">
@@ -42,6 +45,7 @@
         <button class="tab" data-tab="zones" data-icon="zones"><span data-i18n="zones">Zones</span><span class="badge" id="countZones"></span></button>
         <button class="tab" data-tab="contacts" data-icon="contact"><span data-i18n="contacts">Contacts</span><span class="badge" id="countContacts"></span></button>
         <button class="tab" data-tab="rxGroups" data-icon="group"><span data-i18n="rxGroups">TG lists</span><span class="badge" id="countRxGroups"></span></button>
+        <button class="tab" data-tab="aprs" data-icon="pin"><span data-i18n="aprsConfigs">APRS</span><span class="badge" id="countAprs"></span></button>
         <button class="tab" data-tab="vfo" data-icon="vfo"><span data-i18n="vfo">VFO</span></button>
         <button class="tab" data-tab="lockouts" data-icon="scan"><span data-i18n="scanLockouts">Scan lockouts</span><span class="badge" id="countLockouts"></span></button>
         <button class="tab" data-tab="satellites" data-icon="satellite"><span data-i18n="satellites">Satellites</span><span class="badge" id="countSatellites"></span></button>
