@@ -124,8 +124,7 @@ export function buildBlock(sats) {
 // CTCSS in Hz x 10 (arm: SO-50's 74.4 Hz to switch its timer on). Our own list, from AMSAT's FM satellite frequency
 // summary (amsat.org, 2026-11) and the operators' pages; satellites come and go: check AMSAT's status page.
 const MHZ = (f) => Math.round(f * 1e6);
-const TEVEL2 = [['TEVEL2-1', '63217'], ['TEVEL2-2', '63219'], ['TEVEL2-3', '63218'], ['TEVEL2-4', '63213'],
-    ['TEVEL2-5', '63214'], ['TEVEL2-6', '63215'], ['TEVEL2-7', '63238'], ['TEVEL2-8', '63239'], ['TEVEL2-9', '63237']];
+const TEVEL2 = [['TEVEL2-3', '63218'], ['TEVEL2-7', '63238']];
 export const PRESETS = [
     // the cross band FM repeater (voice), APRS, and the crew's voice downlink (other: Region 2 / 3 uplink)
     {name: 'ISS', catalog: '25544', voiceRx: MHZ(437.800), voiceTx: MHZ(145.990), ctcss: 670,
@@ -140,7 +139,6 @@ export const PRESETS = [
     {name: 'RS95S', catalog: '67291', voiceRx: MHZ(436.950), voiceTx: MHZ(145.920), ctcss: 670},
     {name: 'UmKA-1', catalog: '57172', voiceRx: MHZ(437.625)},
     {name: 'IO-86', catalog: '40931', voiceRx: MHZ(435.880), voiceTx: MHZ(145.880), ctcss: 885},
-    {name: 'LilacSat', catalog: '40908', voiceRx: MHZ(437.200), voiceTx: MHZ(144.350)},
     {name: 'AO-27', catalog: '22825', voiceRx: MHZ(436.795), voiceTx: MHZ(145.850)},
     // APRS digipeater only (on a schedule)
     {name: 'SONATE-2', catalog: '59112', aprsRx: MHZ(145.825), aprsTx: MHZ(145.825), otherRx: MHZ(145.840)},
