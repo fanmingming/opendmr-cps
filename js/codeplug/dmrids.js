@@ -7,7 +7,7 @@
 export const AREA_1 = 0x50000;
 export const AREA_1_SPACE = 0x40000;
 export const AREA_2 = 0xD8000;
-export const WINDOW_END = 0x900000; // the window is 9 MB (OpenDMR flash.h)
+export const WINDOW_END = 0x400000; // up to the receive log (OpenDMR rx_log.h RX_LOG_WINDOW_BASE); the window is 9 MB
 export const HEADER = 12;
 // The radio shows 31 characters at most (OpenDMR last_heard.h LAST_HEARD_TEXT_SIZE 32): no longer choices
 export const TEXT_LENGTHS = [8, 12, 16, 20, 24, 31];

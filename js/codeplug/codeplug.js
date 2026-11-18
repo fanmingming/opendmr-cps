@@ -8,9 +8,18 @@ import * as gb from '../gb2312.js';
 import {RadioSettings} from './settings.js';
 import * as SAT from './satellites.js';
 
-export const MODES = ['FM', 'DMR', 'P25', 'AM', 'USB', 'LSB'];
-const OPENDMR_MODE_TAG = 0xA0;       // codeplug.c: byte 37, 0xA1 AM, 0xA2 USB, 0xA3 LSB; 0xA4 P25 (with byte 24 digital)
+export const MODES = ['FM', 'DMR', 'P25', 'NXDN', 'AM', 'USB', 'LSB'];
+export const DIGITAL_MODES = ['DMR', 'P25', 'NXDN'];
+const OPENDMR_MODE_TAG = 0xA0;       // codeplug.c: byte 37, 0xA1 AM, 0xA2 USB, 0xA3 LSB; 0xA4 P25, 0xA5 NXDN (byte 24 digital)
 const OPENDMR_MODE_P25 = 0xA4;
+const OPENDMR_MODE_NXDN = 0xA5;
+// NXDN's RAN (codeplug.h codeplug_nxdn_ran()): 0 - 63 in byte 44 (DMR's colour code); out of range: 1. 0 receives any
+export const NXDN_RAN_DEFAULT = 1;
+export const NXDN_RAN_MAX = 63;
+// The radio's NXDN ID (OpenDMR services/nxdn_id.c, a custom data block "DT" 6): version 1, 0, the ID little endian;
+// 0 or no block: the DMR ID
+export const NXDN_ID_BLOCK_TYPE = 0x44540006;
+const NXDN_ID_BLOCK_LENGTH = 4;
 // P25's NAC (codeplug.h codeplug_p25_nac()): 12 bits, low 8 in byte 44 (DMR's colour code), high 4 in byte 42 with
 // 0xA0 over them; not tagged (0x00 / 0xFF from the OpenGD77 CPS): 293
 export const P25_NAC_DEFAULT = 0x293;
@@ -223,6 +232,9 @@ export class Codeplug {
             }
         }
         this.lockoutsDirty = false;
+        const nxdnBlock = this.findCustomBlock(NXDN_ID_BLOCK_TYPE);
+        this.nxdnIdRead = (nxdnBlock && nxdnBlock.length === NXDN_ID_BLOCK_LENGTH && img[nxdnBlock.data] === 1) ?
+            (img[nxdnBlock.data + 2] | (img[nxdnBlock.data + 3] << 8)) : 0;
         this.customRanges = []; // the custom data bytes store() changed (and the APRS configurations)
         this.aprsConfigs = []; // {index (1 - 8), ...}
         for (let i = 1; i <= APRS_CONFIGS_MAX; i++) {
@@ -236,6 +248,7 @@ export class Codeplug {
         this.general = {
             callsign: readName(img, L.CALLSIGN, 8),
             dmrId: readBcdBigEndian(img, L.DMR_ID) || 0,
+            nxdnId: this.nxdnIdRead, // 0: not set (the DMR ID)
         };
         this.channels = [];
         for (let n = 1; n <= L.CHANNELS_MAX; n++) {
@@ -307,7 +320,7 @@ export class Codeplug {
         const raw = img.slice(at, at + L.CHANNEL_SIZE);
         let mode = 'FM';
         if (raw[24] !== 0) {
-            mode = (raw[37] === OPENDMR_MODE_P25) ? 'P25' : 'DMR';
+            mode = (raw[37] === OPENDMR_MODE_P25) ? 'P25' : (raw[37] === OPENDMR_MODE_NXDN) ? 'NXDN' : 'DMR';
         } else {
             const index = raw[37] ^ OPENDMR_MODE_TAG;
             mode = ['FM', 'AM', 'USB', 'LSB'][index] ?? 'FM';
@@ -323,7 +336,8 @@ export class Codeplug {
             txTone: toneFromCodeplug(u16(raw, 34)),
             power: raw[25],          // 0: the radio's setting, 1 - 10: POWER_LEVELS[power - 1]
             tot: raw[27] * 15,       // s, 0: off
-            colourCode: (mode === 'P25') ? 1 : (raw[44] & 0x0F),
+            colourCode: (mode === 'P25' || mode === 'NXDN') ? 1 : (raw[44] & 0x0F),
+            ran: (raw[44] <= NXDN_RAN_MAX) ? raw[44] : NXDN_RAN_DEFAULT,
             nac: ((raw[42] & 0xF0) === 0xA0) ? (((raw[42] & 0x0F) << 8) | raw[44]) : P25_NAC_DEFAULT,
             timeslot: (raw[49] & FLAG2_TS2) ? 2 : 1,
             contact: u16(raw, 46),   // contact index, 0: none
@@ -354,8 +368,8 @@ export class Codeplug {
         writeName(raw, 0, 16, ch.name);
         setU32(raw, 16, toBcd(Math.round(ch.rx / 10)));
         setU32(raw, 20, toBcd(Math.round(ch.tx / 10)));
-        raw[24] = (ch.mode === 'DMR' || ch.mode === 'P25') ? 1 : 0;
-        raw[37] = (ch.mode === 'P25') ? OPENDMR_MODE_P25 :
+        raw[24] = DIGITAL_MODES.includes(ch.mode) ? 1 : 0;
+        raw[37] = (ch.mode === 'P25') ? OPENDMR_MODE_P25 : (ch.mode === 'NXDN') ? OPENDMR_MODE_NXDN :
             (ANALOG_MODE_INDEX[ch.mode] ? (OPENDMR_MODE_TAG | ANALOG_MODE_INDEX[ch.mode]) : 0);
         setU16(raw, 32, toneToCodeplug(ch.rxTone));
         setU16(raw, 34, toneToCodeplug(ch.txTone));
@@ -364,6 +378,8 @@ export class Codeplug {
         if (ch.mode === 'P25') {
             raw[44] = ch.nac & 0xFF;
             raw[42] = 0xA0 | ((ch.nac >> 8) & 0x0F);
+        } else if (ch.mode === 'NXDN') {
+            raw[44] = Math.min(Math.max(ch.ran, 0), NXDN_RAN_MAX);
         } else {
             raw[44] = ch.colourCode & 0x0F;
         }
@@ -415,7 +431,7 @@ export class Codeplug {
     static newChannel(number) {
         return {
             number, name: 'CH' + number, mode: 'FM', rx: 145500000, tx: 145500000, rxTone: '', txTone: '',
-            power: 0, tot: 0, colourCode: 1, nac: P25_NAC_DEFAULT, timeslot: 1, contact: 0, rxGroup: 0, aprs: 0, wide: true,
+            power: 0, tot: 0, colourCode: 1, nac: P25_NAC_DEFAULT, ran: NXDN_RAN_DEFAULT, timeslot: 1, contact: 0, rxGroup: 0, aprs: 0, wide: true,
             rxOnly: false, zoneSkip: false, allSkip: false, vox: false, squelch: 0, beep: true, eco: true,
             forceDmo: false, dmrId: 0, step: 12500, taTx1: 0, taTx2: 0, latitude: null, longitude: null,
             useLocation: false, raw: null,
@@ -519,6 +535,11 @@ export class Codeplug {
         }
         if (this.lockoutsDirty) {
             this.storeLockouts();
+        }
+        if (this.general.nxdnId !== this.nxdnIdRead) { // no block made for "not set" unless one was there
+            const id = this.general.nxdnId;
+            this.storeCustomBlock(NXDN_ID_BLOCK_TYPE, new Uint8Array([1, 0, id & 0xFF, (id >> 8) & 0xFF]), 'NXDN ID');
+            this.nxdnIdRead = id;
         }
         if (this.aprsDirty) { // the APRS configurations: the radio's are written back otherwise
             const byIndex = new Map(this.aprsConfigs.map((c) => [c.index, c]));

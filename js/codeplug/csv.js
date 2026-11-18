@@ -12,7 +12,8 @@
 //     zones and APRS configurations with a name the codeplug has replace that one, the others are added
 // With an error nothing is changed.
 
-import {MODES, POWER_LEVELS, STEPS_HZ, P25_NAC_DEFAULT, TA_TX, CALL_TYPES, APRS_CONFIGS_MAX, newAprsConfig,
+import {MODES, POWER_LEVELS, STEPS_HZ, P25_NAC_DEFAULT, NXDN_RAN_DEFAULT, NXDN_RAN_MAX, TA_TX, CALL_TYPES,
+    APRS_CONFIGS_MAX, newAprsConfig,
     toneFromCodeplug, toneToCodeplug, frequencyValid} from './codeplug.js';
 import * as L from './layout.js';
 import * as gb from '../gb2312.js';
@@ -132,7 +133,7 @@ const CHANNEL_HEADER = ['Channel Number', 'Channel Name', 'Channel Type', 'Rx Fr
     'Bandwidth (kHz)', 'Colour Code', 'Timeslot', 'Contact', 'TG List', 'DMR ID', 'TS1_TA_Tx', 'TS2_TA_Tx ID',
     'RX Tone', 'TX Tone', 'Squelch', 'Power', 'Rx Only', 'Zone Skip', 'All Skip', 'TOT', 'VOX', 'No Beep', 'No Eco',
     'APRS', 'Latitude', 'Longitude', 'Use Location',
-    'NAC', 'Step (kHz)', 'Force DMO']; // OpenDMR's
+    'NAC', 'Step (kHz)', 'Force DMO', 'RAN']; // OpenDMR's
 
 function squelchText(sql) {
     if (sql === 0) {
@@ -166,6 +167,7 @@ function channelRow(ch, cp) {
         degrees(ch.latitude), degrees(ch.longitude), yesNo(ch.useLocation),
         ch.mode === 'P25' ? ch.nac.toString(16).toUpperCase().padStart(3, '0') : '',
         String(ch.step / 1000), dmr ? yesNo(ch.forceDmo) : '',
+        ch.mode === 'NXDN' ? ch.ran : '',
     ];
 }
 
@@ -638,6 +640,8 @@ export function importCsv(cp, files, {replace = false, newChannel}) {
                 ch.step = hz;
             }
             ch.forceDmo = bool(r.cell('Force DMO'));
+            const ran = r.cell('RAN');
+            ch.ran = ran === '' ? NXDN_RAN_DEFAULT : number(ran, 0, NXDN_RAN_MAX);
             imported.push(ch);
         });
         report.counts.channels = imported.length;

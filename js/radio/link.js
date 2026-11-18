@@ -202,20 +202,26 @@ export class RadioLink {
         return out;
     }
 
+    // The window sector at address, packed (1 KB at a time when it does not pack small enough); throws 'refused' for
+    // a firmware before 0.4.0
+    async readSector(address) {
+        let data = await this.readPacked(address, SECTOR);
+        if (!data) {
+            data = new Uint8Array(SECTOR);
+            for (let k = 0; k < SECTOR; k += READ_CHUNK) {
+                data.set((await this.readPacked(address + k, READ_CHUNK)) ?? await this.read(AREA_FLASH, address + k, READ_CHUNK), k);
+            }
+        }
+        return data;
+    }
+
     // Window bytes [start, end) into img, packed sector by sector when the radio can (then 1 KB at a time where a
     // sector does not pack small enough), else as they are; progress(done, total)
     async readRegion(img, start, end, progress, doneBefore, total) {
         if (this.packs !== false && (start % SECTOR) === 0 && (end % SECTOR) === 0) {
             try {
                 for (let at = start; at < end; at += SECTOR) {
-                    let data = await this.readPacked(at, SECTOR);
-                    if (!data) {
-                        data = new Uint8Array(SECTOR);
-                        for (let k = 0; k < SECTOR; k += READ_CHUNK) {
-                            data.set((await this.readPacked(at + k, READ_CHUNK)) ?? await this.read(AREA_FLASH, at + k, READ_CHUNK), k);
-                        }
-                    }
-                    img.set(data, at);
+                    img.set(await this.readSector(at), at);
                     progress?.(doneBefore + (at + SECTOR - start), total);
                 }
                 this.packs = true;
@@ -405,6 +411,45 @@ export class RadioLink {
         }
         await this.reopen(BAUD);
         await sleep(QUIET_BACK_MS);
+    }
+
+    // The receive log (OpenDMR rx_log.h, 'D' 'L'): op 's' status, 'e' on/off, 'p' pause/resume, 'c' clear
+    async rxLog(op, arg = null) {
+        await this.send([0x44, 0x4C, op.charCodeAt(0), ...(arg === null ? [] : [arg])]);
+        const r = await this.receive(20);
+        if (r[0] !== 0x44 || r[1] !== 0x4C) {
+            throw new Error('bad reply');
+        }
+        const v = new DataView(r.buffer, r.byteOffset, r.byteLength);
+        return {enabled: r[2] === 1, state: r[3], base: v.getUint32(4), sectors: v.getUint16(8),
+            seq: v.getUint32(10), dropped: v.getUint32(14), pending: v.getUint16(18)};
+    }
+
+    // The seq of each sector of the receive log area ('D' 'L' 'h'), null where it is not a sector of the log
+    async rxLogSectors(count) {
+        await this.send([0x44, 0x4C, 0x68]);
+        const r = await this.receive(2 + (4 * count));
+        if (r[0] !== 0x44 || r[1] !== 0x4C) {
+            throw new Error('bad reply');
+        }
+        const v = new DataView(r.buffer, r.byteOffset, r.byteLength);
+        return Array.from({length: count}, (_, i) => {
+            const seq = v.getUint32(2 + (4 * i));
+            return (seq === 0xFFFFFFFF) ? null : seq;
+        });
+    }
+
+    // Window bytes as they are (READ_CHUNK at most), tried three times
+    async readPlain(address, length) {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await this.read(AREA_FLASH, address, length);
+            } catch (e) {
+                if (e.message === 'refused' || attempt >= 2) {
+                    throw e;
+                }
+            }
+        }
     }
 
     async command(...bytes) {

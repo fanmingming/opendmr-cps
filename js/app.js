@@ -2,7 +2,7 @@
 
 import {t, applyTexts, toggleLanguage} from './i18n.js';
 import {icon, applyIcons} from './icons.js';
-import {Codeplug, MODES, P25_NAC_ANY, CALL_TYPES, POWER_LEVELS, STEPS_HZ, toneChoices, frequencyValid, LOCKOUTS_MAX,
+import {Codeplug, MODES, P25_NAC_ANY, NXDN_RAN_MAX, CALL_TYPES, POWER_LEVELS, STEPS_HZ, toneChoices, frequencyValid, LOCKOUTS_MAX,
     TA_TX, APRS_CONFIGS_MAX, newAprsConfig} from './codeplug/codeplug.js';
 import * as L from './codeplug/layout.js';
 import {RadioLink} from './radio/link.js';
@@ -230,7 +230,7 @@ function render() {
     main.replaceChildren();
     ({channels: viewChannels, zones: viewZones, contacts: viewContacts, rxGroups: viewRxGroups, vfo: viewVfo,
         general: viewGeneral, radioSettings: viewRadioSettings, satellites: viewSatellites, dmrIds: viewDmrIds,
-        lockouts: viewLockouts, aprs: viewAprs})[tab](main);
+        lockouts: viewLockouts, aprs: viewAprs, debug: viewDebug})[tab](main);
 }
 
 function pageHead(title, ...rest) {
@@ -270,7 +270,9 @@ function channelEditor(ch, opts) {
 
     function draw() {
         const p25 = ch.mode === 'P25';
-        const analog = ch.mode !== 'DMR' && !p25;
+        const nxdn = ch.mode === 'NXDN';
+        const dmr = ch.mode === 'DMR';
+        const analog = !dmr && !p25 && !nxdn;
         const set = (k, redraw = false) => (v) => {
             ch[k] = v;
             opts.changed?.();
@@ -299,24 +301,27 @@ function channelEditor(ch, opts) {
                     (v) => set('wide')(v === '1'))) : null,
                 field(t('squelch'), select([[0, t('fromRadio')], ...Array.from({length: 21}, (_, i) => [i + 1, (i * 5) + '%'])],
                     ch.squelch, (v) => set('squelch')(+v))),
-            )) : el('div', {class: 'section'}, el('h4', {}, t(p25 ? 'secP25' : 'secDmr')), el('div', {class: 'fields'},
-                p25 ? field(t('nac'), valueInput(ch.nac, set('nac'), (s) => {
+            )) : el('div', {class: 'section'}, el('h4', {}, t(p25 ? 'secP25' : nxdn ? 'secNxdn' : 'secDmr')),
+                el('div', {class: 'fields'},
+                nxdn ? field(t('ran'), select([...Array(NXDN_RAN_MAX + 1).keys()].map((i) => [i, i === 0 ? `0 (${t('ranAny')})` : i]),
+                    ch.ran, (v) => set('ran')(+v)), {help: 'helpRan'}) : null,
+                nxdn ? null : p25 ? field(t('nac'), valueInput(ch.nac, set('nac'), (s) => {
                     const hex = s.trim().split(/\s/)[0];
                     const v = /^[0-9a-fA-F]{1,3}$/.test(hex) ? parseInt(hex, 16) : NaN;
                     return Number.isNaN(v) ? null : v;
                 }, (v) => v.toString(16).toUpperCase().padStart(3, '0') + (v === P25_NAC_ANY ? ' (' + t('nacAny') + ')' : '')))
                     : field(t('colourCode'), select([...Array(16).keys()].map((i) => [i, i]), ch.colourCode, (v) => set('colourCode')(+v))),
-                p25 ? null : field(t('timeslot'), select([[1, 'TS1'], [2, 'TS2']], ch.timeslot, (v) => set('timeslot')(+v))),
+                !dmr ? null : field(t('timeslot'), select([[1, 'TS1'], [2, 'TS2']], ch.timeslot, (v) => set('timeslot')(+v))),
                 field(t('contact'), select([[0, t('none')], ...codeplug.contacts.map((c) => [c.index, `${c.name} · ${c.id}`])],
                     ch.contact, (v) => set('contact')(+v)), {wide: true}),
                 field(t('rxGroup'), select([[0, t('none')], ...codeplug.rxGroups.map((g) => [g.number, g.name])],
                     ch.rxGroup, (v) => set('rxGroup')(+v)), {wide: true}),
-                field(t('channelDmrId'), valueInput(ch.dmrId || '', (v) => set('dmrId')(v || 0),
+                !dmr ? null : field(t('channelDmrId'), valueInput(ch.dmrId || '', (v) => set('dmrId')(v || 0),
                     (s) => (s === '' ? 0 : intRange(1, 16777215)(s)), (v) => v || ''), {wide: true}),
-                check(t('forceDmo'), ch.forceDmo, set('forceDmo')),
-                p25 ? null : field(t('taTx1'), select(TA_TX.map((v, i) => [i, v]), ch.taTx1, (v) => set('taTx1')(+v)),
+                !dmr ? null : check(t('forceDmo'), ch.forceDmo, set('forceDmo')),
+                !dmr ? null : field(t('taTx1'), select(TA_TX.map((v, i) => [i, v]), ch.taTx1, (v) => set('taTx1')(+v)),
                     {help: 'helpTaTx'}),
-                p25 ? null : field(t('taTx2'), select(TA_TX.map((v, i) => [i, v]), ch.taTx2, (v) => set('taTx2')(+v)),
+                !dmr ? null : field(t('taTx2'), select(TA_TX.map((v, i) => [i, v]), ch.taTx2, (v) => set('taTx2')(+v)),
                     {help: 'helpTaTx'}),
             )),
             el('div', {class: 'section'}, el('h4', {}, t('secOther')), el('div', {class: 'fields'},
@@ -361,6 +366,9 @@ function viewChannels(main) {
         if (ch.mode === 'P25') {
             return 'NAC' + ch.nac.toString(16).toUpperCase().padStart(3, '0');
         }
+        if (ch.mode === 'NXDN') {
+            return 'RAN' + ch.ran;
+        }
         return [ch.rxTone, ch.txTone].some((x) => x) ? `${ch.rxTone || '—'} / ${ch.txTone || '—'}` : '';
     }
 
@@ -377,7 +385,7 @@ function viewChannels(main) {
         el('td', {class: 'mono'}, mhz(ch.rx)),
         el('td', {class: 'mono dim'}, ch.tx === ch.rx ? '' : mhz(ch.tx)),
         el('td', {class: 'dim'}, summaryTone(ch)),
-        el('td', {class: 'dim'}, (ch.mode === 'DMR' || ch.mode === 'P25') ? (contactName(ch.contact) || rxGroupName(ch.rxGroup)) : ''),
+        el('td', {class: 'dim'}, ['DMR', 'P25', 'NXDN'].includes(ch.mode) ? (contactName(ch.contact) || rxGroupName(ch.rxGroup)) : ''),
         el('td', {class: 'dim'}, ch.power ? POWER_LEVELS[ch.power - 1] : ''),
         el('td', {},
             ch.rxOnly ? el('span', {class: 'tag'}, t('rxOnly')) : null,
@@ -965,7 +973,9 @@ function viewGeneral(main) {
                 el('h3', {class: 'card-title'}, t('identity')),
                 el('div', {class: 'fields'},
                     field(t('callsign'), nameInput(g.callsign, 8, (v) => (g.callsign = v.toUpperCase()))),
-                    field(t('dmrId'), valueInput(g.dmrId, (v) => (g.dmrId = v), intRange(0, 16777215))))),
+                    field(t('dmrId'), valueInput(g.dmrId, (v) => (g.dmrId = v), intRange(0, 16777215))),
+                    field(t('nxdnId'), valueInput(g.nxdnId || '', (v) => (g.nxdnId = v || 0),
+                        (s) => (s === '' ? 0 : intRange(1, 65535)(s)), (v) => v || ''), {help: 'helpNxdnId'}))),
             el('div', {class: 'card form-card'},
                 el('h3', {class: 'card-title'}, t('radioInfo')),
                 info ? el('dl', {class: 'info'}, info.flatMap(([k, v]) => [el('dt', {}, k), el('dd', {}, v)]))
@@ -1383,6 +1393,207 @@ function satAgeDays(s) {
 
 // Where the TLEs come from (the satellites page's choice, kept in the browser)
 const tleSource = 'auto'; // AMSAT (through serve.py), then CelesTrak, then the TLE API
+
+/* ---- debug: the radio's receive log (OpenDMR src/services/rx_log.h) ---- */
+
+const RX_LOG_MAGIC = 0x314C5852; // "RXL1": a sector of the log
+const RX_LOG_FILE = 'ODRXLOG1';
+const RX_LOG_HEADER = 16;
+const RX_LOG_STATES = ['rxLogOff', 'rxLogRecording', 'rxLogPaused', 'rxLogClearing', 'rxLogForeign', 'rxLogError'];
+let rxLog = null;      // the last status
+let rxLogBusy = false;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Where the records of a sector end in its first bytes: {end, done}; done: the end found (0xFF where a record would
+// start, or the sector's end), else more bytes are needed
+function rxLogEnd(bytes, sectorSize) {
+    let i = RX_LOG_HEADER;
+    for (;;) {
+        if ((i + 6) > sectorSize) {
+            return {end: i, done: true};
+        }
+        if ((i + 2) > bytes.length) {
+            return {end: i, done: false};
+        }
+        const n = bytes[i + 1];
+        if (bytes[i] === 0xFF || n < 6 || (i + n) > sectorSize) {
+            return {end: i, done: true};
+        }
+        if ((i + n) > bytes.length) {
+            return {end: i, done: false};
+        }
+        i += n;
+    }
+}
+
+// A sector of the log up to its last record (1 KB reads as they are: records pack badly; the 0xFF after the last
+// one not read)
+async function rxLogReadSector(address) {
+    const data = new Uint8Array(L.SECTOR);
+    let got = 0;
+    for (;;) {
+        data.set(await link.readPlain(address + got, 1024), got);
+        got += 1024;
+        const e = rxLogEnd(data.subarray(0, got), L.SECTOR);
+        if (e.done) {
+            return data.slice(0, e.end);
+        }
+    }
+}
+
+// The sectors of the log: in one request ('D' 'L' 'h'), or each header read (the first firmware with the log)
+async function rxLogFind(s) {
+    try {
+        return (await link.rxLogSectors(s.sectors)).map((seq, n) => (seq === null ? null : {n, seq}))
+            .filter((x) => x);
+    } catch (e) {
+        if (e.message !== 'refused') {
+            throw e;
+        }
+    }
+    const found = [];
+    for (let n = 0; n < s.sectors; n++) {
+        const head = await link.readPacked(s.base + (n * L.SECTOR), RX_LOG_HEADER);
+        const v = new DataView(head.buffer, head.byteOffset, head.byteLength);
+        if (v.getUint32(0, true) === RX_LOG_MAGIC) {
+            found.push({n, seq: v.getUint32(4, true)});
+        }
+        progress(n + 1, s.sectors);
+    }
+    return found;
+}
+
+function rxLogError(e) {
+    toast(e.message === 'refused' ? t('rxLogNoFirmware') : `${t('error')}: ${e.message}`, 6000);
+}
+
+async function rxLogDo(op, arg = null) {
+    if (!link?.connected || rxLogBusy) {
+        return;
+    }
+    rxLogBusy = true;
+    try {
+        rxLog = await link.rxLog(op, arg);
+    } catch (e) {
+        rxLog = null;
+        rxLogError(e);
+    } finally {
+        rxLogBusy = false;
+        render();
+    }
+}
+
+async function rxLogClear() {
+    const yes = await dialog(t('rxLogClear'), el('p', {}, t('rxLogClearAsk')),
+        [[t('rxLogClear'), true, 'primary'], [t('cancel'), false]]);
+    if (!yes) {
+        return;
+    }
+    await rxLogDo('c');
+    // the erase takes a while (up to about 10 s)
+    for (let i = 0; i < 60 && rxLog?.state === 3; i++) {
+        await wait(500);
+        await rxLogDo('s');
+    }
+}
+
+// Paused, all of it in the flash, every sector of the log read (packed: an empty one costs a few bytes), resumed.
+// The file: RX_LOG_FILE, the JSON length (u32 LE), JSON, then each sector oldest first: its length (u16 LE) and its
+// bytes up to its last record (no 0xFF)
+async function rxLogExport() {
+    if (!link?.connected || rxLogBusy) {
+        return;
+    }
+    rxLogBusy = true;
+    status(t('rxLogReading'));
+    const sectors = [];
+    let s = null;
+    try {
+        s = await link.rxLog('p', 1);
+        for (let i = 0; i < 50 && s.pending > 0; i++) {
+            await wait(100);
+            s = await link.rxLog('s');
+        }
+        const found = await rxLogFind(s);
+        if (found.length) {
+            await link.speedUp(s.base + (found[0].n * L.SECTOR), true); // as the DMR IDs: up to 750000
+            try {
+                for (let i = 0; i < found.length; i++) {
+                    const x = found[i];
+                    sectors.push({seq: x.seq, data: await rxLogReadSector(s.base + (x.n * L.SECTOR))});
+                    progress(i + 1, found.length);
+                }
+            } finally {
+                await link.speedDown();
+            }
+        }
+        s = await link.rxLog('p', 0);
+    } catch (e) {
+        await link.rxLog('p', 0).catch(() => {});
+        rxLogError(e);
+        status(t('error'));
+        return;
+    } finally {
+        rxLogBusy = false;
+        progress(0, 0);
+    }
+    rxLog = s;
+    if (!sectors.length) {
+        status(t('rxLogEmpty'));
+        toast(t('rxLogEmpty'), 5000);
+        render();
+        return;
+    }
+    sectors.sort((a, b) => a.seq - b.seq);
+    const now = new Date();
+    const enc = new TextEncoder();
+    const meta = enc.encode(JSON.stringify({
+        cps: VERSION, firmware: radio ? `${radio.git} ${radio.build}` : '', callsign: codeplug.general.callsign,
+        dmrId: codeplug.general.dmrId, read: now.toISOString(), dropped: s.dropped, sectors: sectors.length,
+    }));
+    const parts = [enc.encode(RX_LOG_FILE), new Uint8Array(new Uint32Array([meta.length]).buffer), meta];
+    let bytes = 0;
+    for (const x of sectors) {
+        parts.push(new Uint8Array([x.data.length & 0xFF, x.data.length >> 8]), x.data);
+        bytes += x.data.length;
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    const name = `${codeplug.general.callsign || 'radio'}-rxlog-${now.getFullYear()}${pad(now.getMonth() + 1)}` +
+        `${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.rxlog`;
+    const a = el('a', {href: URL.createObjectURL(new Blob(parts, {type: 'application/octet-stream'})), download: name});
+    a.click();
+    URL.revokeObjectURL(a.href);
+    status(t('rxLogSaved').replace('{name}', name).replace('{kb}', Math.max(1, Math.round(bytes / 1024))));
+    render();
+}
+
+function viewDebug(main) {
+    const connected = !!link?.connected;
+    const st = rxLog;
+    const off = !connected || rxLogBusy;
+    main.append(pageHead(t('debug')),
+        el('div', {class: 'general-cards'},
+            el('div', {class: 'card form-card'},
+                el('h3', {class: 'card-title'}, t('rxLog')),
+                el('p', {class: 'muted'}, t('rxLogIntro')),
+                el('dl', {class: 'info'},
+                    el('dt', {}, t('rxLogRecord')), el('dd', {}, st ? t(st.enabled ? 'on' : 'off') : '–'),
+                    el('dt', {}, t('rxLogState')), el('dd', {}, st ? t(RX_LOG_STATES[st.state] ?? 'error') : '–'),
+                    el('dt', {}, t('rxLogDropped')), el('dd', {}, st ? String(st.dropped) : '–')),
+                st?.state === 4 ? el('p', {class: 'id-warn'}, t('rxLogForeignHint')) : null,
+                el('div', {class: 'id-sources'},
+                    el('button', {class: 'primary', disabled: off, onclick: rxLogExport}, icon('download'), t('rxLogExport')),
+                    el('button', {disabled: off || !st, onclick: () => rxLogDo('e', st?.enabled ? 0 : 1)},
+                        icon('plug'), t(st?.enabled ? 'rxLogTurnOff' : 'rxLogTurnOn')),
+                    el('button', {disabled: off, onclick: () => rxLogDo('s')}, icon('scan'), t('rxLogRefresh')),
+                    el('button', {disabled: off, onclick: rxLogClear}, icon('trash'), t('rxLogClear'))),
+                connected ? null : el('p', {class: 'muted'}, t('idConnectFirst')),
+                el('p', {class: 'muted id-hint'}, t('rxLogHow')))));
+    if (connected && !st && !rxLogBusy) {
+        rxLogDo('s');
+    }
+}
 
 // The TLEs of these satellites from the chosen source; auto: AMSAT (through serve.py), then CelesTrak's amateur group,
 // then the TLE API one by one for those still missing (CelesTrak not asked one by one: it blocks an address that asks
@@ -1873,10 +2084,11 @@ function setConnected(on) {
     $('linkDot').classList.toggle('on', on);
     if (!on) {
         radio = null;
+        rxLog = null;
         showRadio();
         status(t('notConnected'));
     }
-    if (tab === 'dmrIds') { // its write button and "not connected" follow the link
+    if (tab === 'dmrIds' || tab === 'debug') { // their buttons and "not connected" follow the link (debug: its status)
         render();
     }
 }

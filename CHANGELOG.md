@@ -1,5 +1,21 @@
 # Changelog / 版本记录
 
+## 0.8.0 (2026-11-17)
+
+- NXDN channels (firmware with NXDN, opendmr_mode 0xA5): the mode in the channel and VFO editors, the CSV files
+  (Channel Type `NXDN`); a channel's RAN (0 - 63, 0: receive any), its contact and TG list.
+  NXDN 信道（带 NXDN 的固件，opendmr_mode 0xA5）：信道和 VFO 编辑、CSV（Channel Type `NXDN`）都可以选；信道的 RAN（0 - 63，0
+  收全部），以及它的联系人和接收组。
+- General: the radio's NXDN ID (1 - 65535, a custom data block "DT" 6); empty: the DMR ID.
+  常规：电台的 NXDN ID（1 - 65535，存在自定义数据块 "DT" 6）；留空用 DMR ID。
+- Debug page: the radio's receive log (a test firmware with the receive log, e.g. 0.4.1-debug; not in the released
+  firmware yet): turn it on or off, see its state, export it as one .rxlog file (only what was recorded: no empty
+  flash) to send for an analysis of lost DMR frames, clear it.
+  调试页：电台的接收记录（需要带接收记录的测试版固件，如 0.4.1-debug；正式版固件还没有）：开 / 关记录、看状态、导出成一个
+  .rxlog 文件（只导出有记录的部分，空白的 flash 不导出）发给开发者分析 DMR 丢帧、清空记录。
+- The old-format DMR ID database (for a firmware before 0.4.0) ends below the receive log area (4 MB in the window).
+  旧格式的 DMR ID 库（0.4.0 以前的固件用）写到接收记录区之前为止（窗口内 4 MB）。
+
 ## 0.7.0 (2026-11-16)
 
 - CSV import / export in the OpenGD77 CPS's format (its File > CSV: Channels.csv, Zones.csv, Contacts.csv,
