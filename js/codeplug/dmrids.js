@@ -18,13 +18,11 @@ export const SECTOR = 4096;
 const DECOMPRESS = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.';
 const CODE = new Map([...DECOMPRESS].map((c, i) => [c, i]));
 
-// The list downloaded: what the OpenGD77 CPS downloads by default; GitHub lets any page read it (radioid.net does not:
-// its user.csv is opened as a file)
+// RadioID's list of all the IDs: downloaded in the browser, then opened as a file (radioid.net lets no page read it,
+// and the ContactLists copy on GitHub the CPS downloaded until 0.8.0 is gone: opendmr-cps#5)
 import {COUNTRY_OF_CODE} from './countries.js';
 
-export const SOURCES = {
-    contactLists: 'https://raw.githubusercontent.com/ContactLists/NORMAL-ContactLists/master/RADIODDITY/GD77/GD77_WW_default.csv',
-};
+export const RADIOID_CSV = 'https://radioid.net/static/user.csv';
 
 export const compressSize = (n) => (Math.floor(n / 4) * 3) + (n % 4);
 export const recordLength = (textLength) => 3 + compressSize(textLength);

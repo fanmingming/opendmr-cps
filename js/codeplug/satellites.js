@@ -143,6 +143,91 @@ export const PRESETS = [
     ...TEVEL2.map(([name, catalog]) => ({name, catalog, voiceRx: MHZ(436.400), voiceTx: MHZ(145.970)})),
 ];
 
+// A satellite's key in the lists: its catalog number, or its name when it has none
+export const satKey = (s) => s.catalog || s.name;
+
+// The user's own list of common satellites (PRESETS until changed): kept in the browser, exported and imported as a
+// JSON file to share. A satellite of it: its name, catalog number, frequencies, tones, and its TLE when no orbit file
+// has it (a new satellite with a temporary number)
+const LIST_KEY = 'opendmr-cps-satellites';
+const LIST_FORMAT = 'opendmr-cps-satellites';
+const LIST_NUMBERS = ['voiceRx', 'voiceTx', 'ctcss', 'armCtcss', 'aprsRx', 'aprsTx', 'otherRx', 'otherTx'];
+
+// What the list keeps of a satellite (no empty fields); null: not a satellite
+function listEntry(s) {
+    if (!s || typeof s.name !== 'string' || !/^[\x20-\x7e]{1,8}$/.test(s.name)) {
+        return null;
+    }
+    const p = {name: s.name};
+    if (s.catalog) {
+        if (!/^\d{1,6}$/.test(String(s.catalog))) {
+            return null;
+        }
+        p.catalog = String(s.catalog);
+    }
+    for (const k of LIST_NUMBERS) {
+        const v = Number(s[k] ?? 0);
+        if (!Number.isInteger(v) || v < 0) {
+            return null;
+        }
+        if (v) {
+            p[k] = v;
+        }
+    }
+    if (s.tle1 && s.tle2) {
+        p.tle1 = String(s.tle1);
+        p.tle2 = String(s.tle2);
+    }
+    return p;
+}
+
+// The satellite as the list keeps it; withTle: its TLE too (one of its own, not from an orbit file)
+export function toListEntry(s, withTle) {
+    return listEntry(withTle ? s : {...s, tle1: '', tle2: ''});
+}
+
+export function loadList() {
+    try {
+        const v = JSON.parse(localStorage.getItem(LIST_KEY) ?? 'null');
+        if (Array.isArray(v)) {
+            return v.map(listEntry).filter((p) => p);
+        }
+    } catch (e) {
+        // no storage, or not ours
+    }
+    return null;
+}
+
+// null: back to PRESETS
+export function saveList(list) {
+    try {
+        if (list) {
+            localStorage.setItem(LIST_KEY, JSON.stringify(list));
+        } else {
+            localStorage.removeItem(LIST_KEY);
+        }
+    } catch (e) {
+        // no storage: the list lasts until the page is closed
+    }
+}
+
+export function listFile(list) {
+    return JSON.stringify({format: LIST_FORMAT, version: 1, satellites: list}, null, 1);
+}
+
+// A list file's satellites; throws when it is not one
+export function parseListFile(text) {
+    const v = JSON.parse(text);
+    if (v?.format !== LIST_FORMAT || !Array.isArray(v.satellites)) {
+        throw new Error('not a satellite list');
+    }
+    const list = v.satellites.map(listEntry);
+    if (list.some((p) => !p)) {
+        throw new Error('a satellite of the list is not valid');
+    }
+    return list;
+}
+
 export function newSatellite(preset = {}) {
     return {
         name: 'SAT', catalog: '', tle1: '', tle2: '', voiceRx: 0, voiceTx: 0, ctcss: 0, armCtcss: 0, aprsRx: 0,

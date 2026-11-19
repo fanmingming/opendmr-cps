@@ -447,6 +447,9 @@ button.more { margin: 6px 4px; width: calc(100% - 8px); justify-content: center;
     padding: 6px 12px; cursor: default; }
 .sat-table td.full-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .sat-tools .search { width: 200px; height: 30px; }
+.sat-tools + .sat-tools { padding-top: 0; flex-wrap: wrap; }
+.sat-list-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.sat-list-actions button { height: 28px; }
 .set-control button { margin-top: 6px; width: 100%; justify-content: center; height: 30px; font-size: 12.5px; }
 
 /* scan lockouts */

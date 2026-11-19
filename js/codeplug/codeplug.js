@@ -39,8 +39,8 @@ export const DCS = [0x023, 0x025, 0x026, 0x031, 0x032, 0x043, 0x047, 0x051, 0x05
     0x516, 0x532, 0x546, 0x565, 0x606, 0x612, 0x624, 0x627, 0x631, 0x632, 0x654, 0x662, 0x664, 0x703, 0x712, 0x723,
     0x731, 0x732, 0x734, 0x743, 0x754];
 
-// Radio bands (codeplug.c bands[]), Hz
-export const BANDS = [[137000000, 180000000], [200000000, 279975000], [280000000, 520000000]];
+// Radio bands (codeplug.c bands[]), Hz: the airband receive only (the radio refuses to transmit there)
+export const BANDS = [[108000000, 136997500], [137000000, 180000000], [200000000, 279975000], [280000000, 520000000]];
 
 export function frequencyValid(hz) {
     return BANDS.some(([lo, hi]) => (hz >= lo) && (hz <= hi));

@@ -350,8 +350,88 @@ function channelEditor(ch, opts) {
 
 /* ---- channels ---- */
 
+// Rows ticked to delete many at once: a box per row, one in the header for all the rows shown, and a button that
+// deletes the ticked ones after asking. items(): all of them, shown(): those the filter shows, remove(list): deletes
+// them, redraw(): the rows drawn again
+function bulkDelete({items, shown, remove, redraw}) {
+    const ticked = new Set();
+    const all = el('input', {type: 'checkbox', title: t('tickAll')});
+    const del = button(t('deleteTicked'), 'trash', () => {
+        const list = [...ticked];
+        if (list.length && confirm(t('deleteTickedAsk').replace('{n}', list.length))) {
+            remove(list);
+            ticked.clear();
+            redraw();
+        }
+    }, 'danger');
+    function update() {
+        const present = new Set(items());
+        for (const x of ticked) {
+            if (!present.has(x)) {
+                ticked.delete(x);
+            }
+        }
+        const list = shown();
+        const n = list.filter((x) => ticked.has(x)).length;
+        all.checked = list.length > 0 && n === list.length;
+        all.indeterminate = n > 0 && n < list.length;
+        del.hidden = !ticked.size;
+        del.lastChild.textContent = `${t('deleteTicked')} (${ticked.size})`;
+    }
+    all.addEventListener('change', () => {
+        for (const x of shown()) {
+            if (all.checked) {
+                ticked.add(x);
+            } else {
+                ticked.delete(x);
+            }
+        }
+        redraw();
+    });
+    const tick = (item) => {
+        const box = el('input', {type: 'checkbox', checked: ticked.has(item)});
+        box.addEventListener('click', (e) => e.stopPropagation());
+        box.addEventListener('change', () => {
+            if (box.checked) {
+                ticked.add(item);
+            } else {
+                ticked.delete(item);
+            }
+            update();
+        });
+        return el('td', {class: 'check-cell', onclick: (e) => e.stopPropagation()}, box);
+    };
+    return {head: el('th', {class: 'check-cell'}, all), tick, button: del, update};
+}
+
+// Channels deleted, and taken out of the zones
+function removeChannels(list) {
+    const gone = new Set(list);
+    const numbers = new Set(list.map((c) => c.number));
+    codeplug.channels = codeplug.channels.filter((c) => !gone.has(c));
+    for (const z of codeplug.zones) {
+        z.channels = z.channels.filter((n) => !numbers.has(n));
+    }
+}
+
+// Contacts deleted, and taken out of the TG lists and the channels
+function removeContacts(list) {
+    const gone = new Set(list);
+    const indexes = new Set(list.map((c) => c.index));
+    codeplug.contacts = codeplug.contacts.filter((c) => !gone.has(c));
+    for (const g of codeplug.rxGroups) {
+        g.contacts = g.contacts.filter((i) => !indexes.has(i));
+    }
+    for (const ch of codeplug.channels) {
+        if (indexes.has(ch.contact)) {
+            ch.contact = 0;
+        }
+    }
+}
+
 function viewChannels(main) {
     let filter = '';
+    let shown = [];
     const [search] = searchBox((f) => {
         filter = f;
         fill();
@@ -379,6 +459,7 @@ function viewChannels(main) {
             tr.classList.add('selected');
             openDrawer();
         }},
+        bulk.tick(ch),
         el('td', {class: 'num'}, ch.number),
         el('td', {class: 'name'}, ch.name),
         el('td', {}, el('span', {class: 'pill ' + ch.mode}, ch.mode)),
@@ -395,13 +476,30 @@ function viewChannels(main) {
     }
 
     function fill() {
-        const list = codeplug.channels.filter((c) => !filter || c.name.toLowerCase().includes(filter) ||
+        shown = codeplug.channels.filter((c) => !filter || c.name.toLowerCase().includes(filter) ||
             mhz(c.rx).includes(filter));
-        body.replaceChildren(...list.map(row));
-        if (!list.length) {
-            body.append(el('tr', {}, el('td', {colspan: 9, class: 'empty'}, '—')));
+        body.replaceChildren(...shown.map(row));
+        if (!shown.length) {
+            body.append(el('tr', {}, el('td', {colspan: 10, class: 'empty'}, '—')));
         }
+        bulk.update();
     }
+
+    const bulk = bulkDelete({
+        items: () => codeplug.channels,
+        shown: () => shown,
+        remove: (list) => {
+            removeChannels(list);
+            if (list.includes(selectedChannel)) {
+                selectedChannel = null;
+            }
+        },
+        redraw: () => {
+            counts();
+            fill();
+            openDrawer();
+        },
+    });
 
     function refreshRow() {
         if (selectedChannel?.row) {
@@ -436,10 +534,7 @@ function viewChannels(main) {
                     openDrawer();
                 }),
                 iconButton('trash', t('deleteChannel'), () => {
-                    codeplug.channels = codeplug.channels.filter((c) => c !== ch);
-                    for (const z of codeplug.zones) {
-                        z.channels = z.channels.filter((n) => n !== ch.number);
-                    }
+                    removeChannels([ch]);
                     selectedChannel = null;
                     counts();
                     fill();
@@ -457,6 +552,7 @@ function viewChannels(main) {
     main.append(
         pageHead(t('channels'),
             el('span', {class: 'spacer'}),
+            bulk.button,
             search,
             button(t('add'), 'plus', () => {
                 const n = codeplug.freeChannelNumber();
@@ -479,8 +575,8 @@ function viewChannels(main) {
             el('div', {class: 'card', style: 'flex:1;min-width:0'},
                 el('div', {class: 'table-wrap'},
                     el('table', {class: 'grid'},
-                        el('thead', {}, el('tr', {}, ['number', 'name', 'mode', 'rxFreq', 'txFreq', 'tone', 'contactOrList',
-                            'power', 'flags'].map((k) => el('th', {}, t(k))))),
+                        el('thead', {}, el('tr', {}, bulk.head, ['number', 'name', 'mode', 'rxFreq', 'txFreq', 'tone',
+                            'contactOrList', 'power', 'flags'].map((k) => el('th', {}, t(k))))),
                         body))),
             drawer));
     fill();
@@ -698,6 +794,7 @@ function viewRxGroups(main) {
 function viewContacts(main) {
     let filter = '';
     let selected = null;
+    let shown = [];
     const [search] = searchBox((f) => {
         filter = f;
         fill();
@@ -712,6 +809,7 @@ function viewContacts(main) {
             tr.classList.add('selected');
             openDrawer();
         }},
+        bulk.tick(c),
         el('td', {class: 'num'}, c.index),
         el('td', {class: 'name'}, c.name),
         el('td', {class: 'mono'}, c.id),
@@ -722,10 +820,27 @@ function viewContacts(main) {
     }
 
     function fill() {
-        const list = codeplug.contacts.filter((c) => !filter || c.name.toLowerCase().includes(filter) ||
+        shown = codeplug.contacts.filter((c) => !filter || c.name.toLowerCase().includes(filter) ||
             String(c.id).includes(filter));
-        body.replaceChildren(...list.map(row));
+        body.replaceChildren(...shown.map(row));
+        bulk.update();
     }
+
+    const bulk = bulkDelete({
+        items: () => codeplug.contacts,
+        shown: () => shown,
+        remove: (list) => {
+            removeContacts(list);
+            if (list.includes(selected)) {
+                selected = null;
+            }
+        },
+        redraw: () => {
+            counts();
+            fill();
+            openDrawer();
+        },
+    });
 
     function openDrawer() {
         const c = selected;
@@ -742,15 +857,7 @@ function viewContacts(main) {
         drawer.replaceChildren(
             el('div', {class: 'drawer-head'}, el('h3', {}, c.name),
                 iconButton('trash', t('delete'), () => {
-                    codeplug.contacts = codeplug.contacts.filter((x) => x !== c);
-                    for (const g of codeplug.rxGroups) {
-                        g.contacts = g.contacts.filter((i) => i !== c.index);
-                    }
-                    for (const ch of codeplug.channels) {
-                        if (ch.contact === c.index) {
-                            ch.contact = 0;
-                        }
-                    }
+                    removeContacts([c]);
                     selected = null;
                     counts();
                     fill();
@@ -776,7 +883,7 @@ function viewContacts(main) {
     }
 
     main.append(
-        pageHead(t('contacts'), el('span', {class: 'spacer'}), search,
+        pageHead(t('contacts'), el('span', {class: 'spacer'}), bulk.button, search,
             button(t('add'), 'plus', () => {
                 const i = codeplug.freeContactIndex();
                 if (!i) {
@@ -795,7 +902,7 @@ function viewContacts(main) {
             el('div', {class: 'card', style: 'flex:1;min-width:0'},
                 el('div', {class: 'table-wrap'},
                     el('table', {class: 'grid'},
-                        el('thead', {}, el('tr', {}, ['number', 'name', 'id', 'callType', 'tsOverride']
+                        el('thead', {}, el('tr', {}, bulk.head, ['number', 'name', 'id', 'callType', 'tsOverride']
                             .map((k) => el('th', {}, t(k))))),
                         body))),
             drawer));
@@ -996,43 +1103,17 @@ const dmrIdOptions = {textLength: DMR.DEFAULT_TEXT_LENGTH, withCity: false, pref
 let dmrIdBusy = false;
 let oddbCache = null; // {key, db, error}: our database of the list and prefixes (built in a few seconds)
 
-// The text of a response, the progress bar following its length
-async function fetchText(url) {
-    const r = await fetch(url, {cache: 'no-store'});
-    if (!r.ok) {
-        throw new Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`);
-    }
-    const total = Number(r.headers.get('Content-Length')) || 0;
-    if (!r.body || !total) {
-        return r.text();
-    }
-    const reader = r.body.getReader();
-    const parts = [];
-    let got = 0;
-    for (;;) {
-        const {value, done} = await reader.read();
-        if (done) {
-            break;
-        }
-        parts.push(value);
-        got += value.length;
-        progress(got, total);
-    }
-    progress(0, 0);
-    return new TextDecoder().decode(await new Blob(parts).arrayBuffer());
-}
-
-async function loadDmrIds(source, file) {
-    status(file ? t('idReading') : t('idLoading'));
+async function loadDmrIds(file) {
+    status(t('idReading'));
     try {
-        const text = file ? await file.text() : await fetchText(DMR.SOURCES[source]);
+        const text = await file.text();
         let entries;
         try {
             entries = DMR.parseCsv(text);
         } catch (e) {
             throw new Error(t('idBadCsv'));
         }
-        dmrDb = {entries, source: file ? file.name : 'ContactLists'};
+        dmrDb = {entries, source: file.name};
         oddbCache = null;
         status(`${t('idLoaded')} ${entries.length} ${t('idEntries')}`);
     } catch (e) {
@@ -1186,7 +1267,7 @@ function viewDmrIds(main) {
     const fileInput = el('input', {type: 'file', accept: '.csv,text/csv', hidden: true});
     fileInput.addEventListener('change', () => {
         if (fileInput.files[0]) {
-            loadDmrIds(null, fileInput.files[0]);
+            loadDmrIds(fileInput.files[0]);
         }
     });
     // as the radio shows a caller: the callsign, the name, the city and state, the country
@@ -1206,8 +1287,8 @@ function viewDmrIds(main) {
                 el('h3', {class: 'card-title'}, t('idSource')),
                 el('p', {class: 'muted'}, t('idIntro')),
                 el('div', {class: 'id-sources'},
-                    button(t('idDownload'), 'download', () => loadDmrIds('contactLists'), 'primary'),
-                    button(t('idOpenCsv'), 'open', () => fileInput.click()),
+                    button(t('idDownload'), 'download', () => window.open(DMR.RADIOID_CSV, '_blank', 'noopener')),
+                    button(t('idOpenCsv'), 'open', () => fileInput.click(), 'primary'),
                     fileInput),
                 el('p', {class: 'id-loaded'}, dmrDb ? `${dmrDb.entries.length} ${t('idEntries')} · ${dmrDb.source}`
                     : t('idNone'))),
@@ -1229,16 +1310,8 @@ function viewDmrIds(main) {
                     samples.map((r) => el('div', {class: 'id-sample'}, el('span', {class: 'dim'}, r[0]), ' ', shown(r))))
                     : null,
                 el('div', {class: 'id-write'},
-                    // no list yet: the button downloads ContactLists first
-                    el('button', {class: 'primary', disabled: !link?.connected || dmrIdBusy || (dmrDb && !db && !old.count),
-                        onclick: async () => {
-                            if (!dmrDb) {
-                                await loadDmrIds('contactLists');
-                            }
-                            if (dmrDb) {
-                                await writeDmrIds();
-                            }
-                        }}, icon('upload'), t(dmrDb ? 'idWrite' : 'idDownloadWrite')),
+                    el('button', {class: 'primary', disabled: !link?.connected || dmrIdBusy || !dmrDb || (!db && !old.count),
+                        onclick: writeDmrIds}, icon('upload'), t('idWrite')),
                     link?.connected ? null : el('span', {class: 'muted'}, t('idConnectFirst'))),
                 el('p', {class: 'muted id-hint'}, t('idFirmwareNote')))));
 }
@@ -1738,23 +1811,32 @@ async function loadTleCatalog() {
 // Unticked satellites edited (catalog -> satellite): what they get once ticked
 const satDrafts = new Map();
 
+// The common satellites: the user's own list (kept in the browser) or our presets
+let satList = SAT.loadList();
+const commonSats = () => satList ?? SAT.PRESETS;
+
+function setSatList(list) {
+    satList = list;
+    SAT.saveList(list);
+}
+
 // Tick the satellites to have in the radio: the common ones first (frequencies known), the others of the orbit file
 // below. Orbits come by themselves (here, and again before writing); a name opens its editor
 function viewSatellites(main) {
     let selected = null;
     let preview = null; // an unticked satellite clicked: its details, read only
     let filter = '';
-    const presetOf = new Map(SAT.PRESETS.map((p) => [p.catalog, p]));
+    let presetOf = new Map(); // the common satellites by key (draw())
     const mhzOrEmpty = (hz) => (hz ? mhz(hz) : '');
     // catalog numbers are not stored in the radio: the presets give them by name
     for (const s of codeplug.satellites) {
-        s.catalog ||= SAT.PRESETS.find((p) => p.name === s.name)?.catalog ?? '';
+        s.catalog ||= commonSats().find((p) => p.name === s.name)?.catalog ?? '';
     }
     const changed = () => {
         codeplug.satellitesDirty = true;
         $('countSatellites').textContent = codeplug.satellites.length || '';
     };
-    const inRadio = (catalog) => codeplug.satellites.find((s) => s.catalog === catalog);
+    const inRadio = (key) => codeplug.satellites.find((s) => SAT.satKey(s) === key);
     // an unticked satellite as it would go in: its preset or name, its orbit, what was edited of it
     const draftFor = (entry) => {
         if (!satDrafts.has(entry.catalog)) {
@@ -1862,7 +1944,7 @@ function viewSatellites(main) {
         el('td', {class: 'dim'}, known?.ctcss ? (known.ctcss / 10).toFixed(1) : ''),
         cell(known?.aprsRx),
         el('td', {}, orbit, gone ? el('span', {class: 'orbit old', title: t('goneLong'), style: 'margin-left:6px'}, t('gone')) : null),
-        el('td', {class: 'mono dim'}, entry.catalog));
+        el('td', {class: 'mono dim'}, /^\d+$/.test(entry.catalog) ? entry.catalog : ''));
     }
 
     function draw() {
@@ -1870,10 +1952,12 @@ function viewSatellites(main) {
         const f = filter.trim().toLowerCase();
         const match = (x) => !f || x.short.toLowerCase().includes(f) || (x.name ?? '').toLowerCase().includes(f) ||
             String(x.catalog).includes(f);
-        const common = SAT.PRESETS.map((p) => ({catalog: p.catalog, short: p.name, name: catalog.get(p.catalog)?.name ?? ''}));
+        presetOf = new Map(commonSats().map((p) => [SAT.satKey(p), p]));
+        const common = commonSats().map((p) => ({catalog: SAT.satKey(p), short: p.name,
+            name: (p.catalog && catalog.get(p.catalog)?.name) || ''}));
         // a satellite keeps its place when ticked: "mine" are only those the orbit file does not have
-        const mine = codeplug.satellites.filter((s) => !presetOf.has(s.catalog) && !catalog.has(s.catalog))
-            .map((s) => ({catalog: s.catalog || s.name, short: s.name, name: ''}));
+        const mine = codeplug.satellites.filter((s) => !presetOf.has(SAT.satKey(s)) && !catalog.has(s.catalog))
+            .map((s) => ({catalog: SAT.satKey(s), short: s.name, name: ''}));
         const others = [...catalog.values()]
             .filter((x) => !presetOf.has(x.catalog))
             .map((x) => ({catalog: x.catalog, short: shortSatName(x.name, x.catalog), name: x.name}))
@@ -1900,7 +1984,7 @@ function viewSatellites(main) {
             el('p', {class: 'sat-intro'}, t('satIntro'), el('br'), orbitLine()),
             el('div', {class: 'work'},
                 el('div', {class: 'card', style: 'flex:1;min-width:0'},
-                    listTools(),
+                    ...listTools(),
                     el('div', {class: 'table-wrap'},
                         el('table', {class: 'grid sat-table'},
                             el('thead', {}, el('tr', {}, el('th', {class: 'check-cell'}),
@@ -1920,15 +2004,17 @@ function viewSatellites(main) {
         }
     }
 
-    // Select all the common satellites (or none), and the list and orbits fetched again
+    // Select all the common satellites (or none), and the list and orbits fetched again; then the common list's own
+    // tools: a new satellite, the list imported, exported, back to ours
     function listTools() {
-        const commonIn = SAT.PRESETS.filter((p) => inRadio(p.catalog));
-        const all = el('input', {type: 'checkbox', checked: commonIn.length === SAT.PRESETS.length});
-        all.indeterminate = commonIn.length > 0 && commonIn.length < SAT.PRESETS.length;
+        const list = commonSats();
+        const commonIn = list.filter((p) => inRadio(SAT.satKey(p)));
+        const all = el('input', {type: 'checkbox', checked: commonIn.length === list.length});
+        all.indeterminate = commonIn.length > 0 && commonIn.length < list.length;
         all.addEventListener('change', () => {
             if (all.checked) {
-                for (const p of SAT.PRESETS) {
-                    if (inRadio(p.catalog)) {
+                for (const p of list) {
+                    if (inRadio(SAT.satKey(p))) {
                         continue;
                     }
                     if (codeplug.satellites.length >= SAT.SATELLITES_MAX) {
@@ -1936,14 +2022,14 @@ function viewSatellites(main) {
                         break;
                     }
                     const s = SAT.newSatellite(p);
-                    const x = tleCatalog?.map.get(p.catalog);
+                    const x = p.catalog && tleCatalog?.map.get(p.catalog);
                     if (x) {
                         Object.assign(s, SAT.fromTleLines(x.line1, x.line2));
                     }
                     codeplug.satellites.push(s);
                 }
             } else {
-                codeplug.satellites = codeplug.satellites.filter((s) => !presetOf.has(s.catalog));
+                codeplug.satellites = codeplug.satellites.filter((s) => !presetOf.has(SAT.satKey(s)));
                 if (selected && !codeplug.satellites.includes(selected)) {
                     selected = null;
                 }
@@ -1967,13 +2053,62 @@ function viewSatellites(main) {
             filter = search.value;
             draw();
         });
-        return el('div', {class: 'sat-tools'},
-            el('label', {class: 'sat-all'}, all, t('selectAllCommon')),
-            el('label', {class: 'search'}, icon('search'), search),
-            el('span', {style: 'flex:1'}),
-            tleCatalog && !tleCatalog.error ? el('span', {class: 'muted small'},
-                `${t('listOf')} ${tleCatalog.time.toLocaleTimeString().slice(0, 5)}`) : null,
-            refresh);
+        const fileInput = el('input', {type: 'file', accept: '.json,application/json', hidden: true});
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) {
+                return;
+            }
+            try {
+                setSatList(SAT.parseListFile(await file.text()));
+                toast(`${t('satListImported')}: ${satList.length}`);
+            } catch (e) {
+                toast(`${t('satListBad')}: ${e.message}`, 8000);
+            }
+            draw();
+        });
+        const newSat = button(t('newSat'), 'plus', () => {
+            if (codeplug.satellites.length >= SAT.SATELLITES_MAX) {
+                toast(t('satFull'));
+                return;
+            }
+            let n = 1;
+            while (inRadio(`NEW${n}`) || presetOf.has(`NEW${n}`)) {
+                n++;
+            }
+            const s = SAT.newSatellite({name: `NEW${n}`});
+            codeplug.satellites.push(s);
+            changed();
+            selected = s;
+            preview = null;
+            draw();
+        }, 'ghost');
+        const exportList = button(t('satListExport'), 'download', () => {
+            const a = el('a', {href: URL.createObjectURL(new Blob([SAT.listFile(commonSats())], {type: 'application/json'})),
+                download: 'opendmr-satellites.json'});
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }, 'ghost');
+        const reset = satList ? button(t('satListReset'), null, () => {
+            if (confirm(t('satListResetAsk'))) {
+                setSatList(null);
+                draw();
+            }
+        }, 'ghost') : null;
+        return [
+            el('div', {class: 'sat-tools'},
+                el('label', {class: 'sat-all'}, all, t('selectAllCommon')),
+                el('label', {class: 'search'}, icon('search'), search),
+                el('span', {style: 'flex:1'}),
+                tleCatalog && !tleCatalog.error ? el('span', {class: 'muted small'},
+                    `${t('listOf')} ${tleCatalog.time.toLocaleTimeString().slice(0, 5)}`) : null,
+                refresh),
+            el('div', {class: 'sat-tools'},
+                el('span', {class: 'muted small'}, satList ? t('satListMine') : t('satListOurs')),
+                el('span', {style: 'flex:1'}),
+                newSat, button(t('satListImport'), 'open', () => fileInput.click(), 'ghost'), exportList, reset,
+                fileInput),
+        ];
     }
 
     // The editor of one satellite: its frequencies, and a TLE of its own when no source has one
@@ -1991,6 +2126,27 @@ function viewSatellites(main) {
             edit();
             draw();
         }, (x) => (x === '' ? 0 : parseMhzAny(x)), mhzOrEmpty));
+        // the common list: this satellite put in it with what it has now (its TLE when no orbit file has it), or out
+        const key = SAT.satKey(s);
+        const listed = presetOf.has(key);
+        const saveToList = () => {
+            const entry = SAT.toListEntry(s, !(s.catalog && tleCatalog?.map.has(s.catalog)));
+            if (!entry) {
+                toast(t('satListBad'));
+                return;
+            }
+            const list = [...commonSats()];
+            const at = list.findIndex((p) => SAT.satKey(p) === key);
+            list.splice((at < 0) ? list.length : at, (at < 0) ? 0 : 1, entry);
+            setSatList(list);
+            toast(t('satListSaved'));
+            draw();
+        };
+        const removeFromList = () => {
+            setSatList(commonSats().filter((p) => SAT.satKey(p) !== key));
+            toast(t('satListRemoved'));
+            draw();
+        };
         return [
             el('div', {class: 'drawer-head'}, el('h3', {}, s.name),
                 draft ? button(t('addToRadio'), 'plus', () => {
@@ -2000,6 +2156,9 @@ function viewSatellites(main) {
                         draw();
                     }
                 }, 'primary') : el('span', {class: 'tag'}, t('inRadio'))),
+            el('div', {class: 'sat-list-actions'},
+                button(t(listed ? 'satListUpdate' : 'satListAdd'), listed ? null : 'plus', saveToList, 'ghost'),
+                listed ? button(t('satListRemove'), null, removeFromList, 'ghost') : null),
             el('div', {class: 'section'}, el('div', {class: 'fields'},
                 field(t('name'), valueInput(s.name, (v) => {
                     s.name = v;

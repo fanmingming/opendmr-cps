@@ -1,4 +1,4 @@
-// ContactLists (the default download) gives a country as its ISO 3166 code; RadioID, our ID database and the
+// ContactLists (the default download until 0.8.0) gives a country as its ISO 3166 code; RadioID, our ID database and the
 // firmware's built-in table (OpenDMR src/services/dmr_countries.c) name it. Made by matching the IDs of both lists.
 export const COUNTRY_OF_CODE = {
     ABW: "Aruba", AIA: "Anguilla", ALB: "Albania", AND: "Andorra",
