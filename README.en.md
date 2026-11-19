@@ -18,7 +18,9 @@ Current version **0.7.1** ([changelog](CHANGELOG.md)).
   settings stay as they are
 - CSV import / export in the OpenGD77 CPS's format (channels, zones, contacts, TG lists, APRS): OpenGD77's CSV files
   import as they are, a channel list from another CPS edited into this format too ([how](docs/csv.en.md))
-- 中文 / English interface, dark mode
+- Radio themes: your own colours, the built-in ones recoloured or hidden, previewed on the radio's own screens
+  (OpenDMR 0.6.0 and later)
+- 中文 / English / Español interface, dark mode
 
 ## Use
 

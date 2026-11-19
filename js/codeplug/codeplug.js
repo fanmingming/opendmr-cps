@@ -7,6 +7,7 @@ import {u16, setU16, u32, setU32, fromBcd, toBcd, readBcdBigEndian, writeBcdBigE
 import * as gb from '../gb2312.js';
 import {RadioSettings} from './settings.js';
 import * as SAT from './satellites.js';
+import * as TH from './themes.js';
 
 export const MODES = ['FM', 'DMR', 'P25', 'NXDN', 'AM', 'USB', 'LSB'];
 export const DIGITAL_MODES = ['DMR', 'P25', 'NXDN'];
@@ -236,6 +237,10 @@ export class Codeplug {
             }
         }
         this.lockoutsDirty = false;
+        const themeBlock = this.findCustomBlock(TH.THEME_BLOCK_TYPE);
+        this.themes = TH.readThemes(themeBlock ? img.subarray(themeBlock.data, themeBlock.data + themeBlock.length) : null);
+        this.hadThemeBlock = !!themeBlock;
+        this.themesDirty = false;
         const nxdnBlock = this.findCustomBlock(NXDN_ID_BLOCK_TYPE);
         this.nxdnIdRead = (nxdnBlock && nxdnBlock.length === NXDN_ID_BLOCK_LENGTH && img[nxdnBlock.data] === 1) ?
             (img[nxdnBlock.data + 2] | (img[nxdnBlock.data + 3] << 8)) : 0;
@@ -543,6 +548,13 @@ export class Codeplug {
         }
         if (this.lockoutsDirty) {
             this.storeLockouts();
+        }
+        if (this.themesDirty) { // no block made while nothing is changed, unless one was there
+            if (this.hadThemeBlock || !TH.isDefault(this.themes)) {
+                this.storeCustomBlock(TH.THEME_BLOCK_TYPE, TH.writeThemes(this.themes), 'themes');
+                this.hadThemeBlock = true;
+            }
+            this.themesDirty = false;
         }
         if (this.general.nxdnId !== this.nxdnIdRead) { // no block made for "not set" unless one was there
             const id = this.general.nxdnId;
