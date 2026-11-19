@@ -132,7 +132,7 @@ export const PRESETS = [
     {name: 'SO-50', catalog: '27607', voiceRx: MHZ(436.795), voiceTx: MHZ(145.850), ctcss: 670, armCtcss: 744},
     {name: 'AO-123', catalog: '61781', voiceRx: MHZ(435.400), voiceTx: MHZ(145.850), ctcss: 670, otherRx: MHZ(436.210)},
     {name: 'JAMX01', catalog: '98248', voiceRx: MHZ(436.500), voiceTx: MHZ(145.950), ctcss: 670, otherRx: MHZ(435.175)},
-    {name: 'UNNE-1B', catalog: 'A1101', voiceRx: MHZ(436.888), voiceTx: MHZ(145.925), otherRx: MHZ(436.888)},
+    {name: 'SO-131', catalog: 'A1101', voiceRx: MHZ(436.888), voiceTx: MHZ(145.925), otherRx: MHZ(436.888)},
     {name: 'RS18S', catalog: '67290', voiceRx: MHZ(437.350)},
     {name: 'RS95S', catalog: '67291', voiceRx: MHZ(436.950), voiceTx: MHZ(145.920), ctcss: 670},
     {name: 'UmKA-1', catalog: '57172', voiceRx: MHZ(437.625)},
