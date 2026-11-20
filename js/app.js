@@ -1184,12 +1184,11 @@ async function writeOddb(db) {
     if (changed.length || !headerSame) {
         const all = changed.length + 2;
         const put = async (s, n) => {
-            await link.writeSector(s.sector, s.data);
-            if ((await link.sectorCrc(s.sector * ODDB.SECTOR)) !== ODDB.crc32(s.data)) {
-                throw new Error(`sector 0x${(s.sector * ODDB.SECTOR).toString(16)}: read back different`);
-            }
+            await link.writeVerifiedSector(s.sector, s.data, (baud) => {
+                status(t('idRetrySlower').replace('{baud}', baud));
+            });
             progress(n, all);
-            status(`${t('idWriting')} ${Math.floor(100 * n / all)}%`);
+            status(`${t('idWriting')} ${Math.floor(100 * n / all)}% (${link.baud} baud)`);
         };
         await put({sector: header.sector, data: new Uint8Array(ODDB.SECTOR).fill(0xFF)}, 1); // no database meanwhile
         for (let i = 0; i < changed.length; i++) {
@@ -1197,7 +1196,6 @@ async function writeOddb(db) {
         }
         await put(header, all);
     }
-    await link.closeScreen();
     return changed.length;
 }
 
@@ -1207,9 +1205,8 @@ async function writeOldFormat(plan) {
     for (let i = 0; i < db.sectors.length; i++) {
         await link.writeSector(db.sectors[i].sector, db.sectors[i].data);
         progress(i + 1, db.sectors.length);
-        status(`${t('idWriting')} ${Math.floor(100 * (i + 1) / db.sectors.length)}%`);
+        status(`${t('idWriting')} ${Math.floor(100 * (i + 1) / db.sectors.length)}% (${link.baud} baud)`);
     }
-    await link.closeScreen();
     return db.count;
 }
 
@@ -1218,6 +1215,7 @@ async function writeDmrIds() {
         return;
     }
     dmrIdBusy = true;
+    let transferStarted = false;
     $('btnRead').disabled = true;
     $('btnWrite').disabled = true;
     render();
@@ -1232,6 +1230,7 @@ async function writeDmrIds() {
             if (!window.confirm(t('idWriteConfirmNew').replace('{n}', plan.db.records).replace('{m}', oddbMinutes(plan.db)))) {
                 return;
             }
+            transferStarted = true;
             const written = await writeOddb(plan.db);
             status(`${t('idWritten')}: ${plan.db.records} ${t('idEntries')} (${written} ${t('idSectorsChanged')})`);
         } else {
@@ -1242,6 +1241,7 @@ async function writeDmrIds() {
             if (!window.confirm(t('idWriteConfirmOld').replace('{n}', plan.count).replace('{m}', plan.minutes))) {
                 return;
             }
+            transferStarted = true;
             const count = await writeOldFormat(plan);
             status(`${t('idWritten')}: ${count} ${t('idEntries')}`);
         }
@@ -1252,7 +1252,10 @@ async function writeDmrIds() {
     } finally {
         progress(0, 0);
         try {
-            await link.speedDown(); // the radio is back at 115200 by itself after 5 s of quiet
+            if (transferStarted && link?.connected) {
+                await link.speedDown(); // the radio is back at 115200 by itself after 5 s of quiet
+                await link.closeScreen();
+            }
         } catch (e) {
             // the port went away
         }
