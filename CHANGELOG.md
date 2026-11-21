@@ -1,7 +1,12 @@
 # Changelog / 版本记录
 
-## Unreleased
+## 0.11.0 (2026-11-21)
 
+- Boot screen image (General page): choose a picture, it becomes the radio's 240 x 320 power-on screen in 16
+  colours (custom data block type 1), or take the preset; shown when Radio settings -> Boot screen is on. Needs
+  OpenDMR 0.8.0 ([#14](https://github.com/va3bpf/opendmr-cps/pull/14), by vargasmiguel).
+  开机画面图片（“常规”页）：选一张图片，转换成电台 240 x 320、16 色的开机画面（自定义数据块类型 1），也可以用预设图案；
+  在“电台设置 → 开机画面”打开后显示。需要 OpenDMR 0.8.0。
 - Languages page: the radio's interface languages are files now (OpenDMR 0.8.0: the firmware has English only).
   Choose the languages folder of the OpenDMR zip: Chinese and Spanish are ticked, Write puts them in the radio with
   the font Chinese needs (cjk.bin, about 2 minutes); what the radio has already is not written again. A language
