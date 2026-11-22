@@ -1510,7 +1510,7 @@ function viewRadioSettings(main) {
 
 /* ---- the radio's interface languages and fonts (OpenDMR docs/i18n.md) ---- */
 
-// The files the user chose (the languages folder of the OpenDMR zip: zh.json, es.json, cjk.bin, or single files). {languages: [{file, doc, errors, warnings, ticked}], fonts: [{file, bytes, name, error}]}
+// The files the user chose (the languages folder of opendmr-languages: zh.json, es.json, cjk.bin ..., or single files). {languages: [{file, doc, errors, warnings, ticked}], fonts: [{file, bytes, name, error}]}
 let langSet = null;
 let radioLangs = null; // what the radio has: {slots: [header or null] x 8, fonts: [directory entries]}; null: not read
 let langBusy = false;
@@ -1745,7 +1745,7 @@ async function deleteFromRadio(kind, what) {
 
 function viewLanguages(main) {
     if (!langSet) {
-        langSet = loadLangFiles({}); // the user chooses the languages folder of the OpenDMR zip
+        langSet = loadLangFiles({}); // the user chooses the languages folder of opendmr-languages
     }
     if (link?.connected && !radioLangs && !langBusy) {
         refreshRadioLangs();

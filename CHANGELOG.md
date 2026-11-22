@@ -1,5 +1,13 @@
 # Changelog / 版本记录
 
+## 0.11.1 (2026-11-21)
+
+- Languages page: the languages and the Chinese font come from
+  [opendmr-languages](https://github.com/va3bpf/opendmr-languages) now (OpenDMR 0.8.1 no longer has a languages
+  folder in its zip): download it, choose its languages folder; the languages found are ticked.
+  语言页：语言和中文字库改从 [opendmr-languages](https://github.com/va3bpf/opendmr-languages) 下载（OpenDMR 0.8.1 的压缩包
+  里不再有 languages 文件夹）：下载后选它的 languages 文件夹，找到的语言默认勾选。
+
 ## 0.11.0 (2026-11-21)
 
 - Boot screen image (General page): choose a picture, it becomes the radio's 240 x 320 power-on screen in 16

@@ -619,9 +619,9 @@ const TEXTS = {
         'The radio\'s firmware has English only. The ticked languages are written to the radio, then chosen in its Options -> Language; Chinese needs the font file cjk.bin too, written with it (about 2 minutes).',
         'El firmware de la radio solo trae inglés. Los idiomas marcados se escriben en la radio y se eligen en su menú Opciones -> Language; el chino necesita además la fuente cjk.bin, que se escribe con él (unos 2 minutos).'],
     langNoFiles: [
-        '选择解压后的 OpenDMR 文件夹里的 languages 文件夹（里面有 zh.json、es.json、cjk.bin），中文和西班牙文会默认勾选。',
-        'Choose the languages folder of the unzipped OpenDMR folder (zh.json, es.json, cjk.bin): Chinese and Spanish are ticked.',
-        'Elige la carpeta languages de la carpeta de OpenDMR descomprimida (zh.json, es.json, cjk.bin): chino y español quedan marcados.'],
+        '从 https://github.com/va3bpf/opendmr-languages 下载语言（Code → Download ZIP）并解压，选它的 languages 文件夹（zh.json、es.json、cjk.bin……），找到的语言会默认勾选。',
+        'Download the languages from https://github.com/va3bpf/opendmr-languages (Code -> Download ZIP), unzip it and choose its languages folder (zh.json, es.json, cjk.bin ...): the languages found are ticked.',
+        'Descarga los idiomas de https://github.com/va3bpf/opendmr-languages (Code -> Download ZIP), descomprímelo y elige su carpeta languages (zh.json, es.json, cjk.bin...): los idiomas encontrados quedan marcados.'],
     langPickFolder: ['选择文件夹', 'Choose folder', 'Elegir carpeta'],
     langPickFiles: ['选择文件', 'Choose files', 'Elegir archivos'],
     langWrite: ['写入电台', 'Write to the radio', 'Escribir en la radio'],
