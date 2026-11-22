@@ -1,6 +1,6 @@
 # Changelog / 版本记录
 
-## Unreleased
+## 0.12.0 (2026-11-22)
 
 - Themes: Export theme saves the chosen theme (name, light or dark, colours) to a JSON file; Import themes adds such
   files as your own themes, to share them
@@ -11,10 +11,11 @@
   where a free place should be (zeros), and nothing could be added after it. Only when a change needs a new block
   there, the CPS now asks whether to clear the invalid part (the valid blocks before it are kept); once written, it
   doesn't ask again. A block of another length is no longer resized in place over the blocks after it
-  ([OpenDMR #124](https://github.com/va3bpf/OpenDMR/issues/124)).
+  ([OpenDMR #124](https://github.com/va3bpf/OpenDMR/issues/124); also "no room for the NXDN ID", #16).
   空间明明够却提示“no room for the themes in the custom data”：电台的自定义数据区里本该是空位的地方是无效数据（全 0），后面什么
   都加不进去。现在只有在这次修改确实要新增数据块时，CPS 才会询问是否清除这部分无效数据（前面有效的块都保留）；写入一次以后就不
-  会再问。长度不同的同类数据块也不再原地改长度、覆盖后面的块（[OpenDMR #124](https://github.com/va3bpf/OpenDMR/issues/124)）。
+  会再问。长度不同的同类数据块也不再原地改长度、覆盖后面的块（[OpenDMR #124](https://github.com/va3bpf/OpenDMR/issues/124)；
+  “no room for the NXDN ID” 也是这个原因，#16）。
 - Cable speed (toolbar, before Connect): “Auto speed” ticked as before (the fastest the cable keeps for the long writes, slower
   when sectors fail), or, unticked, the speed typed in the box (115200 ... 1312500, the radio’s nearest) used for every read and write, the codeplug too; an
   error says when the cable does not keep it. Kept in the browser. After a failed write the next try waits for the
