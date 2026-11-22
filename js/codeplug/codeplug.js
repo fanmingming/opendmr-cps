@@ -8,6 +8,7 @@ import * as gb from '../gb2312.js';
 import {RadioSettings} from './settings.js';
 import * as SAT from './satellites.js';
 import * as TH from './themes.js';
+import * as BOOT from './boot_image.js';
 
 export const MODES = ['FM', 'DMR', 'P25', 'NXDN', 'M17', 'AM', 'USB', 'LSB'];
 export const DIGITAL_MODES = ['DMR', 'P25', 'NXDN', 'M17'];
@@ -23,10 +24,13 @@ export const M17_CAN_MAX = 15; // M17's channel access number, byte 44 (codeplug
 // 0 or no block: the DMR ID
 export const NXDN_ID_BLOCK_TYPE = 0x44540006;
 const NXDN_ID_BLOCK_LENGTH = 4;
-// The radio's interface language (OpenDMR services/language.c, a custom data block "DT" 4): version 1,
-// the language number (0 English, 1 Chinese, 2 Spanish); no block: bit 19 of bitfield_options
-export const LANGUAGE_BLOCK_TYPE = 0x44540004;
-const LANGUAGE_BLOCK_LENGTH = 2;
+// The radio's interface language (OpenDMR services/language.c): its code in the custom data block "DT" 8 (version 1,
+// 3 bytes 0, the code NUL padded to 8 bytes). Before it (and still followed when there) "DT" 4: version 1, a number
+// (0 English, 1 Chinese, 2 Spanish); no block: bit 19 of bitfield_options, Chinese
+export const LANGUAGE_BLOCK_TYPE = 0x44540008;
+const LANGUAGE_BLOCK_LENGTH = 12;
+const OLD_LANGUAGE_BLOCK_TYPE = 0x44540004;
+const OLD_LANGUAGES = ['en', 'zh', 'es'];
 // P25's NAC (codeplug.h codeplug_p25_nac()): 12 bits, low 8 in byte 44 (DMR's colour code), high 4 in byte 42 with
 // 0xA0 over them; not tagged (0x00 / 0xFF from the OpenGD77 CPS): 293
 export const P25_NAC_DEFAULT = 0x293;
@@ -243,12 +247,24 @@ export class Codeplug {
         this.themes = TH.readThemes(themeBlock ? img.subarray(themeBlock.data, themeBlock.data + themeBlock.length) : null);
         this.hadThemeBlock = !!themeBlock;
         this.themesDirty = false;
+        const bootBlock = this.findCustomBlock(BOOT.BOOT_IMAGE_BLOCK_TYPE);
+        const bootBytes = bootBlock ? img.slice(bootBlock.data, bootBlock.data + bootBlock.length) : null;
+        this.bootImage = BOOT.isValidBootImageBlock(bootBytes) ? bootBytes : null;
+        this.hadBootImageBlock = !!bootBlock;
+        this.bootImageDirty = false;
         const nxdnBlock = this.findCustomBlock(NXDN_ID_BLOCK_TYPE);
         this.nxdnIdRead = (nxdnBlock && nxdnBlock.length === NXDN_ID_BLOCK_LENGTH && img[nxdnBlock.data] === 1) ?
             (img[nxdnBlock.data + 2] | (img[nxdnBlock.data + 3] << 8)) : 0;
         const langBlock = this.findCustomBlock(LANGUAGE_BLOCK_TYPE);
-        this.languageRead = (langBlock && langBlock.length === LANGUAGE_BLOCK_LENGTH && img[langBlock.data] === 1 && img[langBlock.data + 1] < 3) ?
-            img[langBlock.data + 1] : this.settings.language;
+        const oldLangBlock = this.findCustomBlock(OLD_LANGUAGE_BLOCK_TYPE);
+        if (langBlock && langBlock.length === LANGUAGE_BLOCK_LENGTH && img[langBlock.data] === 1) {
+            const code = img.subarray(langBlock.data + 4, langBlock.data + 12);
+            this.languageRead = new TextDecoder().decode(code.subarray(0, code.indexOf(0) < 0 ? 8 : code.indexOf(0))) || 'en';
+        } else if (oldLangBlock && oldLangBlock.length === 2 && img[oldLangBlock.data] === 1 && img[oldLangBlock.data + 1] < 3) {
+            this.languageRead = OLD_LANGUAGES[img[oldLangBlock.data + 1]];
+        } else {
+            this.languageRead = this.settings.language;
+        }
         this.settings.language = this.languageRead;
         this.customRanges = []; // the custom data bytes store() changed (and the APRS configurations)
         this.aprsConfigs = []; // {index (1 - 8), ...}
@@ -563,13 +579,29 @@ export class Codeplug {
             }
             this.themesDirty = false;
         }
+        if (this.bootImageDirty) {
+            if (this.bootImage) {
+                this.storeCustomBlock(BOOT.BOOT_IMAGE_BLOCK_TYPE, this.bootImage, 'boot image');
+                this.hadBootImageBlock = true;
+            } else if (this.hadBootImageBlock) {
+                this.storeCustomBlock(BOOT.BOOT_IMAGE_BLOCK_TYPE, new Uint8Array(BOOT.BOOT_IMAGE_BLOCK_LENGTH).fill(0xFF), 'boot image');
+            }
+            this.bootImageDirty = false;
+        }
         if (this.general.nxdnId !== this.nxdnIdRead) { // no block made for "not set" unless one was there
             const id = this.general.nxdnId;
             this.storeCustomBlock(NXDN_ID_BLOCK_TYPE, new Uint8Array([1, 0, id & 0xFF, (id >> 8) & 0xFF]), 'NXDN ID');
             this.nxdnIdRead = id;
         }
         if (this.settings.languageDirty || this.settings.language !== this.languageRead) {
-            this.storeCustomBlock(LANGUAGE_BLOCK_TYPE, new Uint8Array([1, this.settings.language]), 'interface language');
+            const block = new Uint8Array(LANGUAGE_BLOCK_LENGTH);
+            block[0] = 1;
+            block.set(new TextEncoder().encode(this.settings.language).subarray(0, 7), 4);
+            this.storeCustomBlock(LANGUAGE_BLOCK_TYPE, block, 'interface language');
+            if (this.findCustomBlock(OLD_LANGUAGE_BLOCK_TYPE)) { // as the radio does: older CPS see the same
+                const n = OLD_LANGUAGES.indexOf(this.settings.language);
+                this.storeCustomBlock(OLD_LANGUAGE_BLOCK_TYPE, new Uint8Array([1, n < 0 ? 0 : n]), 'interface language');
+            }
             this.languageRead = this.settings.language;
             this.settings.languageDirty = false;
         }
