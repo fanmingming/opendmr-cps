@@ -201,7 +201,7 @@ button.icon-only { width: 30px; height: 30px; padding: 0; justify-content: cente
 .tab.active .badge { color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); }
 
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 20px; gap: 14px; overflow: hidden; }
-.page-head { display: flex; align-items: center; gap: 10px; flex: none; }
+.page-head { display: flex; align-items: center; gap: 10px; flex: none; min-height: 34px; } /* the height of its buttons and filter, with or without them: no jump between pages */
 .page-head h2 { margin: 0 8px 0 0; font-size: 18px; font-weight: 650; }
 .page-head .spacer { flex: 1; }
 
@@ -220,6 +220,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18
 
 /* ---- tables ---- */
 .table-wrap { flex: 1; min-height: 0; overflow: auto; }
+/* in a card: its corners, so the sticky header's background is clipped round there instead of covering them */
+.card > .table-wrap:first-child { border-top-left-radius: var(--radius); border-top-right-radius: var(--radius); }
+.card > .table-wrap:last-child { border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
 table.grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 table.grid th {
     position: sticky; top: 0; z-index: 1;
@@ -428,7 +431,7 @@ button.big { height: 40px; padding: 0 18px; font-weight: 600; }
 .warn-text { color: #b45309; white-space: pre-line; margin: 0 0 8px; }
 
 /* ---- satellites: one list to tick ---- */
-.sat-page { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.sat-page { display: flex; flex-direction: column; gap: 14px; flex: 1; min-height: 0; }
 .sat-intro { margin: 0; line-height: 1.7; }
 .sat-list { flex: 1; min-width: 0; overflow: auto; padding: 6px; }
 .sat-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
@@ -493,3 +496,58 @@ button.more { margin: 6px 4px; width: calc(100% - 8px); justify-content: center;
 .lang-row { display: grid; gap: 2px; }
 .lang-row > div:first-child { display: flex; align-items: center; gap: 6px; }
 .lang-row .muted { font-size: 12px; padding-left: 24px; }
+
+/* the flasher: one card, the tasks as tabs, the task's steps as a numbered list */
+.fl-card { max-width: none; }
+.fl-status { display: grid; gap: 8px; margin: 0 0 14px; }
+.fl-status-row { display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: center; min-height: 32px; }
+.fl-status-label { color: var(--muted); font-size: 13px; }
+.fl-status-value { font-weight: 600; word-break: break-word; }
+.fl-status-value.muted { font-weight: 400; }
+.fl-tasks { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 10px; background: var(--bg);
+    border: 1px solid var(--line); }
+.fl-task { flex: 1 1 140px; border: 0; background: transparent; padding: 8px 10px; border-radius: 7px; cursor: pointer;
+    color: var(--muted); font-weight: 600; }
+.fl-task:hover:not(:disabled) { color: var(--text); }
+.fl-task.active { background: var(--panel); color: var(--accent-text); box-shadow: var(--shadow); }
+.fl-task-intro { margin: 12px 0 4px; }
+.fl-steps { list-style: none; margin: 8px 0 0; padding: 0; }
+.fl-step { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 0; border-top: 1px solid var(--line); }
+.fl-step:first-child { border-top: 0; }
+.fl-mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px;
+    font-weight: 700; }
+.fl-step.done .fl-mark { border-color: var(--ok); background: var(--ok); color: #fff; }
+.fl-step-title { font-weight: 600; }
+.fl-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.fl-step-sub { font-size: 12.5px; margin-top: 2px; word-break: break-word; }
+.fl-adv { margin-top: 14px; padding: 12px 20px; }
+.fl-adv > summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+.fl-adv[open] > summary { margin-bottom: 8px; }
+.fl-adv .id-sources { margin: 6px 0; }
+.fl-adv p { margin: 6px 0 0; }
+
+/* the flasher's log: the time in its column, the lines wrapping, its own scroll */
+/* the steps as tall as they need (scrolling once the log is down to its minimum), the log the rest */
+.fl-scroll { flex: 0 1 auto; min-height: 0; overflow: auto; }
+.fl-log-panel { flex: 1 1 auto; min-height: 200px; display: flex; flex-direction: column; padding: 14px 20px 16px; }
+.fl-log-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 8px; }
+.fl-log-head .card-title { margin: 0; display: flex; align-items: center; gap: 8px; }
+.fl-log-count { font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 0 7px; }
+.fl-log-head .id-sources { margin: 0; }
+.fl-log { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--line); padding-top: 8px;
+  font: 12.5px/1.6 ui-monospace, Consolas, monospace; }
+.fl-log-empty { color: var(--faint); font: 13px/1.6 system-ui, sans-serif; padding-top: 4px; }
+.fl-log-line { white-space: pre-wrap; word-break: break-word; }
+.fl-log-time { opacity: .55; }
+.fl-log-line.ok { color: var(--ok); }
+.fl-log-line.bad { color: var(--danger); }
+
+/* the flasher's working line under the steps: what it is doing now, and how far */
+.fl-live { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg); color: var(--muted);
+    font-size: 13px; }
+.fl-live.on { color: var(--text); background: var(--accent-soft); }
+.fl-live-bar { height: 5px; margin-top: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.fl-live-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
