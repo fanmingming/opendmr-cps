@@ -9,6 +9,7 @@
 
 - 信道（FM / DMR / P25 / NXDN / M17 / AM / USB / LSB；P25 的 NAC，NXDN 的 RAN，M17 的 CAN）、区域、联系人、TG 列表、APRS 配置、VFO A / B、呼号和 DMR ID
 - 电台菜单里的设置（通用、电台、显示、声音、APRS），功率 50 mW – 10 W，每个信道和 VFO 各自的功率
+- APRS：符号从 94 个字符的下拉列表里选
 - 业余卫星：勾选即加入电台，轨道自动下载（AMSAT / CelesTrak）
 - DMR ID 数据库：导入 CSV（如 radioid.net 的 user.csv，点一下就能下载），按国家筛选，写入电台后收到呼叫时显示呼号、名字、城市、州/省和国家（OpenDMR 0.4.0 及以后；全部 ID 都存得下，只写变了的部分）
 - 中文名称按 GB2312 写入，电台上正常显示
@@ -18,6 +19,20 @@
 - 电台主题：新建自己的配色、给自带主题改色或隐藏，在电台自己的屏幕上预览（OpenDMR 0.6.0 及以后）
 - 界面语言：把 OpenDMR 压缩包里 languages 文件夹的语言（中文、西班牙文……）和需要的字库写进电台（OpenDMR 0.8.0 及以后）
 - 中文 / English / Español 界面，深色模式
+
+## 刷写与备份
+
+侧栏最后的 **刷写与备份**（Flasher）页使用页面顶部连接的串口和速率设置，以及你选择的、解压后的 OpenDMR 发布目录：固件
+（`opendmr.bin`）和写进电台 RAM 的两个程序（`tools/debug/updater/updater.bin`、`tools/backup/dumper/dumper.bin`）都来自
+这个目录，保证是同一个版本。每次做一个任务，按步骤来：
+
+- **更新 OpenDMR**：通过写频线只写不同的扇区，不用 PTT + SK1 升级模式，和 OpenDMR 的 `tools/debug/fw_update.py` 一样。
+- **安装到原厂电台**：走芯片引导程序（电台关机再开机）。
+- **备份与恢复**：程序 Flash（1 MB）和数据 Flash（16 MB，含这台电台的出厂校准），各自可以备份（读完再和电台逐扇区核对）
+  或写回，走芯片引导程序。写回原厂程序 Flash 备份就是退回原厂固件；数据 Flash 备份只有在出厂校准扇区和电台一致时才写。
+  码表本身用「读取电台」和「保存文件」备份。
+
+程序 Flash 只写固件区（0xC000 以上），下面的引导程序不动。电台屏幕和页面上的记录会显示每一步，记录可以存成文件。
 
 ## 使用
 
@@ -41,3 +56,4 @@
 - `py release.py`：生成发行用的 `opendmr-cps.html`（代码合成一个文件，压缩到最小）。改完源码后运行。
   需要先安装：`py -m pip install rjsmin rcssmin minify-html zopfli`
 - `py build.py`：生成可读的 `opendmr-cps-debug.html`，用于调试从磁盘直接打开的情况
+- 测试（不用电台，Node 18+）：`node tools/web/tests/test-updater.mjs`、`test-bootloader.mjs`、`test-screen.mjs`

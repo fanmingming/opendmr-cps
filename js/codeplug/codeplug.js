@@ -175,6 +175,39 @@ function setAscii(b, at, n, text) {
     });
 }
 
+// The APRS symbols: the character (0x21 to 0x7E; its code minus 33 is the index in the config) and its name in the
+// primary table (APRS 1.0.1 appendix 2, aprs.org symbols); the alternate table gives the same characters other meanings
+export const APRS_SYMBOL_NAMES = {
+    '!': 'Police station', '#': 'Digipeater', '$': 'Phone', '%': 'DX cluster', '&': 'HF gateway',
+    "'": 'Small aircraft', '(': 'Mobile satellite station', ')': 'Wheelchair', '*': 'Snowmobile', '+': 'Red Cross',
+    ',': 'Boy Scouts', '-': 'House', '.': 'X', '/': 'Red dot', ':': 'Fire', ';': 'Campground', '<': 'Motorcycle',
+    '=': 'Railroad engine', '>': 'Car', '?': 'File server', '@': 'Hurricane forecast', A: 'Aid station', B: 'BBS',
+    C: 'Canoe', E: 'Eyeball', F: 'Tractor', G: 'Grid square', H: 'Hotel', I: 'TCP/IP', K: 'School', L: 'PC user',
+    M: 'MacAPRS', N: 'NTS station', O: 'Balloon', P: 'Police', R: 'RV', S: 'Space shuttle', T: 'SSTV', U: 'Bus',
+    V: 'ATV', W: 'Weather service site', X: 'Helicopter', Y: 'Yacht', Z: 'WinAPRS', '[': 'Person', '\\': 'DF triangle',
+    ']': 'Mailbox', '^': 'Large aircraft', _: 'Weather station', '`': 'Dish antenna', a: 'Ambulance', b: 'Bicycle',
+    c: 'Incident command post', d: 'Fire station', e: 'Horse', f: 'Fire truck', g: 'Glider', h: 'Hospital',
+    i: 'IOTA', j: 'Jeep', k: 'Truck', l: 'Laptop', m: 'Mic-E repeater', n: 'Node', o: 'EOC', p: 'Dog',
+    q: 'Grid square (2 x 2)', r: 'Repeater', s: 'Ship', t: 'Truck stop', u: 'Semi truck', v: 'Van',
+    w: 'Water station', x: 'xAPRS', y: 'Yagi at QTH',
+};
+
+// [character, label] for the symbol picker: every character of the two tables, its name when it has one
+export function aprsSymbolChoices() {
+    const choices = [];
+    for (let code = 0x21; code <= 0x7E; code++) {
+        const ch = String.fromCharCode(code);
+        const name = APRS_SYMBOL_NAMES[ch] || ((code >= 0x30 && code <= 0x39) ? 'Number' : '');
+        choices.push([ch, name ? `${ch}  ${name}` : ch]);
+    }
+    return choices;
+}
+
+// The character of a configuration's symbol (icon: the index, table: 0 primary / 1 alternate)
+export function aprsSymbolOf(config) {
+    return String.fromCharCode(33 + (config.icon & 0x7F));
+}
+
 export function newAprsConfig(name = 'APRS') {
     return {name, ssid: 7, via1: 'WIDE1', via1Ssid: 1, via2: 'WIDE2', via2Ssid: 1, iconTable: 0, icon: 58, // '[': a person (a handheld)
         comment: '', ambiguity: 0, usePosition: false, latitude: null, longitude: null, txFrequency: 0, qsy: false,

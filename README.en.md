@@ -9,6 +9,7 @@ Current version **0.12.0** ([changelog](CHANGELOG.md)).
 
 - Channels (FM / DMR / P25 / NXDN / M17 / AM / USB / LSB; the NAC of P25, the RAN of NXDN, the CAN of M17), zones, contacts, TG lists, APRS configurations, VFO A / B, callsign and DMR ID
 - The radio's menu settings (general, radio, display, sound, APRS); power 50 mW – 10 W, each channel and VFO its own
+- APRS: the configurations, the symbol picked from a list of the 94 characters
 - Amateur satellites: tick one to put it in the radio; orbits fetched by themselves (AMSAT / CelesTrak)
 - DMR ID database: from a CSV (radioid.net's user.csv, downloaded with a click), by country; the radio
   then shows callers' callsigns, names, cities, states and countries (OpenDMR 0.4.0 and later; all the IDs fit, only
@@ -23,6 +24,25 @@ Current version **0.12.0** ([changelog](CHANGELOG.md)).
 - Interface languages: the languages of the OpenDMR zip's languages folder (Chinese, Spanish, ...) and the
   fonts they need, written to the radio (OpenDMR 0.8.0 and later)
 - 中文 / English / Español interface, dark mode
+
+## Flasher and backups
+
+The **Flasher** page (last in the sidebar) uses the page's connected port and cable speed (the toolbar) and the
+unzipped OpenDMR release folder you choose: the firmware (`opendmr.bin`) and the two programs it loads into the radio's
+RAM (`tools/debug/updater/updater.bin`, `tools/backup/dumper/dumper.bin`) all come from that folder, so they always
+belong to the same release. One task at a time, each with its steps:
+
+- **Update OpenDMR**: writes the sectors that differ over the cable, without the PTT + SK1 upgrade mode, as OpenDMR's
+  `tools/debug/fw_update.py`.
+- **Install on a stock radio**: through the chip bootloader (radio off, then on).
+- **Backup and restore**: the program flash (1 MB) and the data flash (16 MB, with the radio's factory calibration),
+  each backed up (checked against the radio sector by sector once read) or written back, through the chip
+  bootloader. Writing back the stock program flash backup goes back to the stock firmware; a data flash backup is only
+  written when its factory calibration sector matches the radio's. The codeplug itself is backed up with "Read radio"
+  and "Save file".
+
+Only the firmware area (0xC000 and up) of the program flash is ever written; the bootloader below it stays. The radio's
+screen and the page's log show each step; the log can be saved to a file.
 
 ## Use
 
@@ -47,3 +67,4 @@ from a file on disk).
 - `py release.py`: makes the release page `opendmr-cps.html` (everything in one file, as small as it gets). Run it after
   changing the sources; needs `py -m pip install rjsmin rcssmin minify-html zopfli` first
 - `py build.py`: makes a readable `opendmr-cps-debug.html`, to debug the page opened from disk
+- tests (no radio, Node 18+): `node tools/web/tests/test-updater.mjs`, `test-bootloader.mjs`, `test-screen.mjs`
