@@ -1,5 +1,23 @@
 # Changelog / 版本记录
 
+## 0.13.0 (2026-11-24)
+
+- Messages page (needs OpenDMR 0.9.0): the radio's 16 quick texts edited (inserted with # while writing a message,
+  63 bytes each), its inbox and outbox read (32 messages each; the outbox with delivered / sent / not sent), the ones
+  ticked deleted, exported as CSV. A message is deleted only if it is still the same one on the radio, so one that
+  arrived after the read is never removed ([OpenDMR #156](https://github.com/va3bpf/OpenDMR/pull/156)).
+  短信页（需要 OpenDMR 0.9.0）：编辑电台的 16 条快捷短语（写短信时按 # 插入，每条 63 字节）；查看收件箱和发件箱（各 32 条，发件箱有
+  已送达 / 已发送 / 未发出状态）；勾选删除、导出 CSV。只有电台上仍是同一条短信时才会删除，读取之后新收到的短信不会被误删
+  （[OpenDMR #156](https://github.com/va3bpf/OpenDMR/pull/156)）。
+- Flasher page (thanks Pablo LU8HPA, [#11](https://github.com/va3bpf/opendmr-cps/pull/11)): update OpenDMR, install
+  it on a stock radio, back up and restore the program and data flash, all from the unzipped OpenDMR release folder,
+  over the toolbar's port and cable speed.
+  刷机页（感谢 Pablo LU8HPA，[#11](https://github.com/va3bpf/opendmr-cps/pull/11)）：用解压后的 OpenDMR 发布文件夹，通过工具栏的端口和
+  写频线速度，更新 OpenDMR、安装到原厂电台、备份和恢复程序 Flash 与数据 Flash。
+- Table cards with rounded corners; page heads one height, so the page no longer jumps when you switch
+  ([#18](https://github.com/va3bpf/opendmr-cps/pull/18)).
+  表格卡片改成圆角；各页标题栏高度一致，切换页面时不再跳动（[#18](https://github.com/va3bpf/opendmr-cps/pull/18)）。
+
 ## 0.12.0 (2026-11-22)
 
 - Themes: Export theme saves the chosen theme (name, light or dark, colours) to a JSON file; Import themes adds such
