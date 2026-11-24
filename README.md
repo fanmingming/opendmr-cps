@@ -3,7 +3,7 @@
 [English](README.en.md) · 浏览器里的写频软件，用于运行 [OpenDMR](https://github.com/va3bpf/OpenDMR) 固件的
 **Baofeng DM-32 / DM-32UV**。
 
-当前版本 **0.12.0**（[版本记录](CHANGELOG.md)）
+当前版本 **0.13.0**（[版本记录](CHANGELOG.md)）
 
 ## 功能
 
@@ -18,6 +18,7 @@
 - CSV 导入 / 导出，格式和 OpenGD77 CPS 一样（信道、区域、联系人、TG 列表、APRS），可以直接导入 OpenGD77 的 CSV，也可以把别的软件的信道表改成这个格式导入（[说明](docs/csv.md)）
 - 电台主题：新建自己的配色、给自带主题改色或隐藏，在电台自己的屏幕上预览（OpenDMR 0.6.0 及以后）
 - 界面语言：把 OpenDMR 压缩包里 languages 文件夹的语言（中文、西班牙文……）和需要的字库写进电台（OpenDMR 0.8.0 及以后）
+- 短信：编辑快捷短语，查看、删除、导出收件箱和发件箱（OpenDMR 0.9.0 及以后）
 - 中文 / English / Español 界面，深色模式
 
 ## 刷写与备份

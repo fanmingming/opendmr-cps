@@ -3,7 +3,7 @@
 [中文](README.md) · A codeplug editor in the browser for the **Baofeng DM-32 / DM-32UV** running the
 [OpenDMR](https://github.com/va3bpf/OpenDMR) firmware.
 
-Current version **0.12.0** ([changelog](CHANGELOG.md)).
+Current version **0.13.0** ([changelog](CHANGELOG.md)).
 
 ## Features
 
@@ -23,6 +23,7 @@ Current version **0.12.0** ([changelog](CHANGELOG.md)).
   (OpenDMR 0.6.0 and later)
 - Interface languages: the languages of the OpenDMR zip's languages folder (Chinese, Spanish, ...) and the
   fonts they need, written to the radio (OpenDMR 0.8.0 and later)
+- Text messages: the quick texts edited, the inbox and outbox read, deleted, exported (OpenDMR 0.9.0 and later)
 - 中文 / English / Español interface, dark mode
 
 ## Flasher and backups
