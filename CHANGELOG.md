@@ -9,14 +9,11 @@
   短信页（需要 OpenDMR 0.9.0）：编辑电台的 16 条快捷短语（写短信时按 # 插入，每条 63 字节）；查看收件箱和发件箱（各 32 条，发件箱有
   已送达 / 已发送 / 未发出状态）；勾选删除、导出 CSV。只有电台上仍是同一条短信时才会删除，读取之后新收到的短信不会被误删
   （[OpenDMR #156](https://github.com/va3bpf/OpenDMR/pull/156)）。
-- Flasher page (experimental; thanks Pablo LU8HPA, [#11](https://github.com/va3bpf/opendmr-cps/pull/11)): update
-  OpenDMR, install it on a stock radio, back up and restore the program and data flash, all from the unzipped OpenDMR
-  release folder, over the toolbar's port and cable speed. Only the program flash backup was checked on a radio, before
-  the page's last rework; since then its tasks (update, install, data flash backup and restore, back to stock, a pulled
-  cable) are not tested on a radio yet: keep `fw_update.py` and the bootloader's upgrade mode at hand.
-  刷机页（实验性；感谢 Pablo LU8HPA，[#11](https://github.com/va3bpf/opendmr-cps/pull/11)）：用解压后的 OpenDMR 发布文件夹，通过工具栏的端口和
-  写频线速度，更新 OpenDMR、安装到原厂电台、备份和恢复程序 Flash 与数据 Flash。只有程序 Flash 备份在页面最后一次重构之前在电台上验证过；
-  重构后的各项功能（更新、安装、数据 Flash 备份与恢复、刷回原厂、拔线后恢复）都还没在电台上测，请备好 `fw_update.py` 和引导程序升级模式。
+- Flasher page (thanks Pablo LU8HPA, [#11](https://github.com/va3bpf/opendmr-cps/pull/11)): update OpenDMR, install
+  it on a stock radio, back up and restore the program and data flash, all from the unzipped OpenDMR release folder,
+  over the toolbar's port and cable speed.
+  刷机页（感谢 Pablo LU8HPA，[#11](https://github.com/va3bpf/opendmr-cps/pull/11)）：用解压后的 OpenDMR 发布文件夹，通过工具栏的端口和
+  写频线速度，更新 OpenDMR、安装到原厂电台、备份和恢复程序 Flash 与数据 Flash。
 - Table cards with rounded corners; page heads one height, so the page no longer jumps when you switch
   ([#18](https://github.com/va3bpf/opendmr-cps/pull/18)).
   表格卡片改成圆角；各页标题栏高度一致，切换页面时不再跳动（[#18](https://github.com/va3bpf/opendmr-cps/pull/18)）。
