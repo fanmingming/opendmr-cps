@@ -10,6 +10,7 @@ import {GROUPS, SETTINGS, SETTINGS_SIZE} from './codeplug/settings.js';
 import {language} from './i18n.js';
 import {VERSION} from './version.js';
 import * as SAT from './codeplug/satellites.js';
+import * as SMS from './codeplug/sms.js';
 import * as TH from './codeplug/themes.js';
 import * as BOOT from './codeplug/boot_image.js';
 import {SCREENS, SCREEN_WIDTH, SCREEN_HEIGHT} from './ui/screens.js';
@@ -226,6 +227,7 @@ function counts() {
     $('countAprs').textContent = codeplug.aprsConfigs.length || '';
     $('countSatellites').textContent = codeplug.satellites.length || '';
     $('countLockouts').textContent = (codeplug.lockouts.length + lockedChannels().length) || '';
+    $('countSms').textContent = codeplug.sms.inbox.length || '';
 }
 
 function render() {
@@ -235,7 +237,7 @@ function render() {
     main.replaceChildren();
     ({channels: viewChannels, zones: viewZones, contacts: viewContacts, rxGroups: viewRxGroups, vfo: viewVfo,
         general: viewGeneral, radioSettings: viewRadioSettings, satellites: viewSatellites, dmrIds: viewDmrIds,
-        lockouts: viewLockouts, aprs: viewAprs, debug: viewDebug, themes: viewThemes, languages: viewLanguages, flasher: flasherView.view})[tab](main);
+        lockouts: viewLockouts, sms: viewSms, aprs: viewAprs, debug: viewDebug, themes: viewThemes, languages: viewLanguages, flasher: flasherView.view})[tab](main);
 }
 
 function pageHead(title, ...rest) {
@@ -1885,6 +1887,150 @@ function viewLockouts(main) {
                 channelRows.length ? el('div', {class: 'lockout-list'}, channelRows) : el('p', {class: 'muted'}, t('lockoutNone')))));
 }
 
+/* ---- text messages ---- */
+
+let smsBox = 0; // the box shown: 0 the inbox, 1 the outbox
+const smsSelected = new Set(); // the records ticked (their flash addresses)
+
+function smsTime(seconds) {
+    if (!seconds) {
+        return '';
+    }
+    const d = new Date(seconds * 1000);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// who: the sender (inbox) or the receiver (outbox); a contact's name for its ID
+function smsPeer(m) {
+    if (m.mode === 1) {
+        return m.peer || t('smsAll');
+    }
+    const id = (m.box === 0) ? m.src : m.dst;
+    if (m.group && m.box === 1) {
+        return 'TG ' + id;
+    }
+    const c = codeplug.contacts.find((x) => x.id === id);
+    return c ? `${c.name} (${id})` : String(id);
+}
+
+function smsMode(m) {
+    if (m.mode === 1) {
+        return 'M17' + (m.group ? ' ' + t('smsAll') : '');
+    }
+    return 'DMR ' + (m.group ? 'TG ' + m.dst : t('smsPrivate'));
+}
+
+const SMS_STATUS = ['smsSending', 'smsSent', 'smsDelivered', 'smsFailed'];
+
+function smsCsv() {
+    const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+    const lines = [['box', 'time', 'peer', 'mode', 'status', 'text'].join(',')];
+    for (const [box, list] of [['inbox', codeplug.sms.inbox], ['outbox', codeplug.sms.outbox]]) {
+        for (const m of list) {
+            lines.push([box, smsTime(m.time), smsPeer(m), smsMode(m), box === 'outbox' ? t(SMS_STATUS[m.status & 3]) : '',
+                m.text].map(q).join(','));
+        }
+    }
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n') + '\r\n'], {type: 'text/csv'});
+    const a = el('a', {href: URL.createObjectURL(blob), download: (codeplug.general.callsign || 'radio') + '-sms.csv'});
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function viewSms(main) {
+    const list = smsBox === 0 ? codeplug.sms.inbox : codeplug.sms.outbox;
+    for (const at of [...smsSelected]) { // ticks of the box shown only
+        if (!list.some((m) => m.at === at)) {
+            smsSelected.delete(at);
+        }
+    }
+    const seg = el('span', {class: 'sms-seg'},
+        ...[0, 1].map((b) => el('button', {class: smsBox === b ? 'on' : '', onclick: () => {
+            smsBox = b;
+            smsSelected.clear();
+            render();
+        }}, t(b === 0 ? 'smsInbox' : 'smsOutbox') + ' ' + (b === 0 ? codeplug.sms.inbox : codeplug.sms.outbox).length)));
+    const del = button(t('smsDeleteSelected'), 'trash', () => {
+        const box = smsBox === 0 ? codeplug.sms.inbox : codeplug.sms.outbox;
+        for (const m of box.filter((x) => smsSelected.has(x.at))) {
+            codeplug.smsDeletes.push(m);
+        }
+        const keep = box.filter((x) => !smsSelected.has(x.at));
+        if (smsBox === 0) {
+            codeplug.sms.inbox = keep;
+        } else {
+            codeplug.sms.outbox = keep;
+        }
+        smsSelected.clear();
+        render();
+        toast(t('smsDeletedWrite'));
+    }, 'danger');
+    del.disabled = smsSelected.size === 0;
+    // the quick texts
+    const presetRows = codeplug.sms.presets.map((text, i) => {
+        const bytes = el('span', {class: 'sms-bytes'});
+        const show = (v) => {
+            bytes.textContent = v ? `${new TextEncoder().encode(v).length}/${SMS.PRESET_SIZE - 1}` : '';
+        };
+        const input = el('input', {value: text, placeholder: t('smsEmpty'), spellcheck: false});
+        input.addEventListener('input', () => {
+            let v = input.value;
+            if (new TextEncoder().encode(v).length > SMS.PRESET_SIZE - 1) { // cut on a character
+                v = new TextDecoder().decode(SMS.presetBytes(v));
+                input.value = v;
+            }
+            codeplug.sms.presets[i] = v;
+            codeplug.smsPresetsDirty = true;
+            show(v);
+        });
+        show(text);
+        return el('div', {class: 'sms-preset'}, el('span', {class: 'sms-n'}, String(i + 1)), input, bytes);
+    });
+    const used = codeplug.sms.presets.filter((p) => p).length;
+    // the box
+    const all = el('input', {type: 'checkbox', onchange: (e) => {
+        smsSelected.clear();
+        if (e.target.checked) {
+            list.forEach((m) => smsSelected.add(m.at));
+        }
+        render();
+    }});
+    all.checked = list.length > 0 && smsSelected.size === list.length;
+    const rows = list.map((m) => {
+        const tick = el('input', {type: 'checkbox', onchange: (e) => {
+            if (e.target.checked) {
+                smsSelected.add(m.at);
+            } else {
+                smsSelected.delete(m.at);
+            }
+            render();
+        }});
+        tick.checked = smsSelected.has(m.at);
+        return el('tr', {class: smsSelected.has(m.at) ? 'selected' : ''},
+            el('td', {}, tick),
+            el('td', {class: 'mono'}, smsTime(m.time)),
+            el('td', {class: 'name'}, m.unread ? el('span', {class: 'sms-unread'}) : null, smsPeer(m)),
+            el('td', {}, el('span', {class: 'sms-tag'}, smsMode(m))),
+            smsBox === 1 ? el('td', {class: 'sms-status-' + (m.status & 3)}, t(SMS_STATUS[m.status & 3])) : null,
+            el('td', {class: 'sms-text'}, m.text));
+    });
+    const head = ['', 'smsTime', smsBox === 0 ? 'smsFrom' : 'smsTo', 'smsMode', smsBox === 1 ? 'smsStatus' : null, 'smsText']
+        .filter((k) => k !== null).map((k, i) => el('th', i === 0 ? {style: 'width:28px'} : {}, i === 0 ? all : t(k)));
+    main.append(
+        pageHead(t('sms'), seg, el('span', {class: 'spacer'}), button(t('smsExport'), 'save', smsCsv, 'ghost'), del),
+        el('div', {class: 'sms-cols'},
+            el('div', {class: 'card sms-presets'},
+                el('div', {class: 'card-head'}, el('h3', {}, t('smsPresets') + ' ', el('span', {class: 'count'},
+                    `${used} / ${SMS.PRESETS}`))),
+                el('div', {class: 'sms-preset-list'}, ...presetRows),
+                el('div', {class: 'sms-hint'}, t('smsPresetsHint'))),
+            el('div', {class: 'card', style: 'min-width:0'},
+                list.length ? el('div', {class: 'table-wrap'}, el('table', {class: 'grid'},
+                    el('thead', {}, el('tr', {}, ...head)), el('tbody', {}, ...rows)))
+                    : el('div', {class: 'sms-hint'}, t(smsBox === 0 ? 'smsInboxEmpty' : 'smsOutboxEmpty')))));
+}
+
 /* ---- satellites ---- */
 
 const CTCSS_LIST = [670, 693, 719, 744, 770, 797, 825, 854, 885, 915, 948, 974, 1000, 1035, 1072, 1109, 1148, 1188,
@@ -3216,6 +3362,13 @@ async function writeRadio() {
         for (const [a, b] of ranges) {
             target.set(codeplug.img.subarray(a, b), a);
         }
+        // the text messages deleted: only where the radio still has the one read (it may have taken new ones over
+        // the oldest since)
+        for (const m of codeplug.smsDeletes) {
+            if (SMS.sameRecord(onRadio, m)) {
+                target[m.at] = 0;
+            }
+        }
         const sectors = [];
         for (const r of L.REGIONS) {
             for (let s = r.start / L.SECTOR; s < r.end / L.SECTOR; s++) {
@@ -3239,6 +3392,7 @@ async function writeRadio() {
             progress(i + 1, sectors.length);
         }
         radioImage = target; // what the radio has now
+        codeplug.smsDeletes = [];
         await link.speedDown();
         await link.restart();
         status(t('writeDone') + ` (${sectors.length} × 4 KB)`);

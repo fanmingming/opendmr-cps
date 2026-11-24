@@ -2,6 +2,7 @@
 // the bytes they were read from; store() writes back only the fields this editor knows, so whatever else the firmware
 // or the OpenGD77 CPS keeps in them is left as it was.
 
+import * as SMS from './sms.js';
 import * as L from './layout.js';
 import {u16, setU16, u32, setU32, fromBcd, toBcd, readBcdBigEndian, writeBcdBigEndian, fill} from './bytes.js';
 import * as gb from '../gb2312.js';
@@ -318,6 +319,9 @@ export class Codeplug {
             }
         }
         this.aprsDirty = false;
+        this.sms = {presets: SMS.readPresets(img), inbox: SMS.readBox(img, 0), outbox: SMS.readBox(img, 1)};
+        this.smsPresetsDirty = false;
+        this.smsDeletes = []; // records deleted here: written only where the radio still has the same (sms.js)
         this.channelsPerZone = (img[L.ZONE_FORMAT_CHECK + 15] <= 0x04) ? 80 : 16;
         this.general = {
             callsign: readName(img, L.CALLSIGN, 8),
@@ -713,6 +717,13 @@ export class Codeplug {
             }
             this.languageRead = this.settings.language;
             this.settings.languageDirty = false;
+        }
+        if (this.smsPresetsDirty) { // the quick texts (the header sector's start)
+            this.customRanges.push(SMS.writePresets(img, this.sms.presets));
+            this.smsPresetsDirty = false;
+        }
+        for (const m of this.smsDeletes) { // in the image too (a file saved shows them deleted)
+            img[m.at] = 0;
         }
         if (this.aprsDirty) { // the APRS configurations: the radio's are written back otherwise
             const byIndex = new Map(this.aprsConfigs.map((c) => [c.index, c]));

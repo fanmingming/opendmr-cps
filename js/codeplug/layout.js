@@ -43,6 +43,7 @@ export const NAME_LENGTH = 16;
 export const REGIONS = [
     {start: 0x0000, end: 0xB000},
     {start: 0x20000, end: 0x30000}, // the custom data blocks (satellites, the radio's key map, tones...)
+    {start: 0x30000, end: 0x39000}, // the text messages: the quick texts, the inbox, the outbox (sms.js)
     {start: 0x9B000, end: 0xAF000},
 ];
 
