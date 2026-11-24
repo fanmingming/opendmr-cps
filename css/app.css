@@ -173,6 +173,7 @@ button.icon-only { width: 30px; height: 30px; padding: 0; justify-content: cente
 .tab[data-tab=rxGroups] { --c: #c8457d; }
 .tab[data-tab=vfo]      { --c: #d0661f; }
 .tab[data-tab=satellites] { --c: #0e7490; }
+.tab[data-tab=sms] { --c: #0f8a6a; }
 .tab[data-tab=radioSettings] { --c: #b8860b; }
 .tab[data-tab=general]  { --c: #5f6b7a; }
 @media (prefers-color-scheme: dark) {
@@ -182,6 +183,7 @@ button.icon-only { width: 30px; height: 30px; padding: 0; justify-content: cente
     .tab[data-tab=rxGroups] { --c: #f08abb; }
     .tab[data-tab=vfo]      { --c: #f6a065; }
     .tab[data-tab=satellites] { --c: #22d3ee; }
+    .tab[data-tab=sms] { --c: #34d399; }
     .tab[data-tab=radioSettings] { --c: #e2b84a; }
     .tab[data-tab=general]  { --c: #9ba7b6; }
 }
@@ -551,3 +553,21 @@ button.more { margin: 6px 4px; width: calc(100% - 8px); justify-content: center;
 .fl-live.on { color: var(--text); background: var(--accent-soft); }
 .fl-live-bar { height: 5px; margin-top: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 .fl-live-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
+
+/* the text messages' page */
+.sms-cols { display: grid; grid-template-columns: 360px 1fr; gap: 14px; min-height: 0; flex: 1; align-items: start; }
+.sms-presets { display: flex; flex-direction: column; }
+.sms-preset { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--line); }
+.sms-preset input { flex: 1; min-width: 0; }
+.sms-n { width: 22px; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sms-bytes { width: 44px; text-align: right; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sms-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.sms-seg button { border: 0; border-radius: 0; }
+.sms-seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+table.grid td.sms-text { white-space: normal; max-width: 460px; overflow-wrap: anywhere; }
+.sms-unread { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+.sms-tag { font-size: 11px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }
+.sms-status-2 { color: #16a34a; }
+.sms-status-3 { color: var(--danger); }
+.sms-hint { color: var(--muted); font-size: 12.5px; padding: 8px 12px; }
+@media (max-width: 900px) { .sms-cols { grid-template-columns: 1fr; } }
