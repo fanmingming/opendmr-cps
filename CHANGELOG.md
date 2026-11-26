@@ -1,5 +1,17 @@
 # Changelog / 版本记录
 
+## Unreleased
+
+- Radio settings: the DTMF timing ([OpenDMR #177](https://github.com/va3bpf/OpenDMR/issues/177)): digits a second,
+  the delay before the first digit, the first digit and * / # longer, the hold after the last one. A codeplug from
+  another tool can have a slow rate there (1 or 2 digits a second: a node number takes 4 - 9 s); 5 digits a second
+  is our default. Values the radio can't use are shown as it takes them.
+  电台设置：DTMF 时序（[OpenDMR #177](https://github.com/va3bpf/OpenDMR/issues/177)）：每秒几位、首位前延时、首位和 * / # 加长、
+  末位后保持。其他写频软件写的码表里速率可能很慢（每秒 1 或 2 位，发一个节点号要 4 - 9 秒）；我们默认每秒 5 位。电台不能用的值，
+  按电台实际采用的值显示。
+- Radio settings: one group a page (General, Radio, Display, Sound, APRS, DTMF), chosen at the top.
+  电台设置：每组一页（通用、电台、显示、声音、APRS、DTMF），在页面顶部切换。
+
 ## 0.13.0 (2026-11-24)
 
 - Messages page (needs OpenDMR 0.9.0): the radio's 16 quick texts edited (inserted with # while writing a message,
