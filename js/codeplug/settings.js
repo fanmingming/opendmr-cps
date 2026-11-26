@@ -3,9 +3,12 @@
 // only with the magic number right, and resets any field out of its range (settings.c check_ranges): every field is
 // read, changed in its bits only, and written back.
 
+import {DTMF_DURATIONS} from './layout.js';
+
 export const SETTINGS = 0x604B;
 export const SETTINGS_SIZE = 108;
 const MAGIC = 0x477B;
+export const DTMF_DURATIONS_SIZE = 5;
 
 const ONOFF = [[0, 'Off', '关', 'Desactivado'], [1, 'On', '开', 'Activado']];
 const TONES = [[0, 'Off', '关', 'Desactivado'], [1, 'Beep', '单音', 'Pitido'], [2, 'Double', '双音', 'Doble'], [3, 'Rising', '上升', 'Ascendente'], [4, 'Falling', '下降', 'Descendente'],
@@ -15,7 +18,8 @@ const tenths = (v) => `${Math.floor(v / 10)}.${v % 10}s`;
 const db3 = (v) => `${(2 - v) * 3}dB`;
 
 // An item: o offset, s size (1, 2, 4), b [shift, mask] in that field, signed; c choices [value, en, zh, es], or a number
-// n [min, max] with f(value) -> its label; inv: a bool shown the other way round; when(s): applies
+// n [min, max] with f(value) -> its label; inv: a bool shown the other way round; when(s): applies; at: the field's
+// base address when not SETTINGS
 export const GROUPS = [
     {key: 'general', en: 'General', zh: '通用', es: 'General', items: [
         {id: 'keyLong', en: 'Key long', zh: '长按', es: 'Pulsación larga', o: 103, s: 1, n: [1, 90], f: tenths},
@@ -108,6 +112,20 @@ export const GROUPS = [
         {id: 'aprsTurnSlope', en: 'Turn slope', zh: '转弯斜率', es: 'Pendiente de giro', o: 40, s: 4, b: [8, 255], n: [1, 255], f: (v) => `${v * 10}°/v`, input: true},
         {id: 'aprsTurnTime', en: 'Turn time', zh: '转弯时间', es: 'Tiempo de giro', o: 40, s: 4, b: [0, 255], n: [5, 180], f: (v) => `${v}s`, input: true},
     ]},
+    // The DTMF timing: not in the settings but the 5 bytes of the signalling settings at DTMF_DURATIONS (at), as the
+    // firmware reads them (codeplug.c codeplug_get_dtmf_durations()); read: what it takes for a value out of range
+    {key: 'dtmf', en: 'DTMF', zh: 'DTMF', es: 'DTMF', items: [
+        {id: 'dtmfRate', en: 'Rate', zh: '速率', es: 'Velocidad', at: DTMF_DURATIONS, o: 3, s: 1, n: [1, 10],
+            f: (v) => [`${v} digits/s`, `每秒 ${v} 位`, `${v} dígitos/s`], read: (v) => ((v < 1 || v > 10) ? 2 : v)},
+        {id: 'dtmfDelay', en: 'First digit delay', zh: '首位延时', es: 'Retardo primer dígito', at: DTMF_DURATIONS, o: 0, s: 1,
+            n: [0, 10], f: (v) => `${v * 100}ms`, read: (v) => ((v > 10) ? 5 : v)},
+        {id: 'dtmfFirst', en: 'First digit longer', zh: '首位加长', es: 'Primer dígito más largo', at: DTMF_DURATIONS, o: 1, s: 1,
+            n: [0, 100], f: (v) => `${v * 10}ms`, read: (v) => ((v > 100) ? 0 : v)},
+        {id: 'dtmfStarHash', en: '* and # longer', zh: '* 和 # 加长', es: '* y # más largos', at: DTMF_DURATIONS, o: 2, s: 1,
+            n: [0, 100], f: (v) => `${v * 10}ms`, read: (v) => ((v > 100) ? 0 : v)},
+        {id: 'dtmfTail', en: 'Hold after last', zh: '末位后保持', es: 'Espera tras el último', at: DTMF_DURATIONS, o: 4, s: 1,
+            n: [0, 10], f: (v) => `${v * 100}ms`, read: (v) => ((v > 10) ? 5 : v)},
+    ]},
 ];
 
 const BY_ID = new Map(GROUPS.flatMap((g) => g.items).map((i) => [i.id, i]));
@@ -116,6 +134,7 @@ export class RadioSettings {
     constructor(img) {
         this.img = img;
         this.dirty = false;
+        this.dtmfDirty = false; // the DTMF timing (written on its own: not in the settings)
         this.languageDirty = false;
         const item = BY_ID.get('language');
         const v = this.field(item);
@@ -128,7 +147,7 @@ export class RadioSettings {
     }
 
     field(item) {
-        const at = SETTINGS + item.o;
+        const at = (item.at ?? SETTINGS) + item.o;
         let v = 0;
         for (let i = item.s - 1; i >= 0; i--) {
             v = (v * 256) + this.img[at + i];
@@ -137,7 +156,7 @@ export class RadioSettings {
     }
 
     setField(item, v) {
-        const at = SETTINGS + item.o;
+        const at = (item.at ?? SETTINGS) + item.o;
         for (let i = 0; i < item.s; i++) {
             this.img[at + i] = v % 256;
             v = Math.floor(v / 256);
@@ -191,6 +210,14 @@ export class RadioSettings {
             if (this.get('brightOff') >= lowest) {
                 this.setField(BY_ID.get('brightOff'), Math.max(0, lowest - 1));
             }
+        }
+        if (item.at === DTMF_DURATIONS) {
+            // all five as shown (a value out of range is written as the firmware takes it)
+            for (const other of GROUPS.find((g) => g.key === 'dtmf').items) {
+                this.setField(other, this.get(other.id));
+            }
+            this.dtmfDirty = true;
+            return;
         }
         this.dirty = true;
     }
