@@ -114,9 +114,10 @@ export const GROUPS = [
     ]},
     // The DTMF timing: not in the settings but the 5 bytes of the signalling settings at DTMF_DURATIONS (at), as the
     // firmware reads them (codeplug.c codeplug_get_dtmf_durations()); read: what it takes for a value out of range
+    // (the rate 5 since OpenDMR 0.9.4, 2 before)
     {key: 'dtmf', en: 'DTMF', zh: 'DTMF', es: 'DTMF', items: [
         {id: 'dtmfRate', en: 'Rate', zh: '速率', es: 'Velocidad', at: DTMF_DURATIONS, o: 3, s: 1, n: [1, 10],
-            f: (v) => [`${v} digits/s`, `每秒 ${v} 位`, `${v} dígitos/s`], read: (v) => ((v < 1 || v > 10) ? 2 : v)},
+            f: (v) => [`${v} digits/s`, `每秒 ${v} 位`, `${v} dígitos/s`], read: (v) => ((v < 1 || v > 10) ? 5 : v)},
         {id: 'dtmfDelay', en: 'First digit delay', zh: '首位延时', es: 'Retardo primer dígito', at: DTMF_DURATIONS, o: 0, s: 1,
             n: [0, 10], f: (v) => `${v * 100}ms`, read: (v) => ((v > 10) ? 5 : v)},
         {id: 'dtmfFirst', en: 'First digit longer', zh: '首位加长', es: 'Primer dígito más largo', at: DTMF_DURATIONS, o: 1, s: 1,
