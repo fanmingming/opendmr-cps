@@ -334,7 +334,13 @@ table.grid td.name { font-weight: 550; max-width: 220px; overflow: hidden; text-
 }
 
 /* ---- radio settings ---- */
-.settings-scroll { flex: 1; min-height: 0; overflow: auto; }
+.settings-scroll {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
 .settings-page { max-width: 560px; } /* one group a page (the page head's buttons) */
 .set-rows { padding: 6px 0; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 6px 14px; min-height: 44px; }
