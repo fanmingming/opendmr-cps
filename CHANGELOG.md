@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Toolbar: below 900 px it no longer overflows: the buttons split into two rows at the group division, always visible.
+  Row 1: brand + New / Open / Save / CSV. Row 2: cable speed + Connect / Read / Write and the language.
+  工具栏：900 px 以下不再横向溢出：按钮按分组分成两行，始终可见。第一行：品牌 + 新建 / 打开 / 保存 / CSV；
+  第二行：写频线速度 + 连接 / 读取 / 写入和语言。
 - Radio settings: the DTMF timing ([OpenDMR #177](https://github.com/va3bpf/OpenDMR/issues/177)): digits a second,
   the delay before the first digit, the first digit and * / # longer, the hold after the last one. A codeplug from
   another tool can have a slow rate there (1 or 2 digits a second: a node number takes 4 - 9 s); 5 digits a second
