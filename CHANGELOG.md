@@ -11,6 +11,9 @@
   按电台实际采用的值显示。
 - Radio settings: one group a page (General, Radio, Display, Sound, APRS, DTMF), chosen at the top.
   电台设置：每组一页（通用、电台、显示、声音、APRS、DTMF），在页面顶部切换。
+- DCS: D346 in the tone lists, not D345 (not a DCS code: the radio sent no valid code with it); D345 in a codeplug
+  or a CSV file is read as D346 ([OpenDMR #206](https://github.com/va3bpf/OpenDMR/issues/206)).
+  DCS：亚音列表里是 D346，不是 D345（D345 不是 DCS 码，电台用它发不出有效的码）；码表或 CSV 里的 D345 读成 D346。
 
 ## 0.13.0 (2026-11-24)
 
