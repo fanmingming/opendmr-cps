@@ -49,7 +49,7 @@ export const GROUPS = [
         {id: 'scanMode', en: 'Scan mode', zh: '扫描方式', es: 'Modo de escaneo', o: 80, s: 1, c: [[0, 'Hold', '保持', 'Mantener'], [1, 'Pause', '暂停', 'Pausar'], [2, 'Stop', '停止', 'Detener']]},
         {id: 'scanOnBoot', en: 'Scan on boot', zh: '开机扫描', es: 'Scan al inicio', o: 36, s: 4, b: [7, 1], c: ONOFF},
         {id: 'bootScreen', en: 'Boot screen', zh: '开机画面', es: 'Pantalla de inicio', o: 36, s: 4, b: [2, 1], c: ONOFF},
-        {id: 'dualWatch', en: 'Dual Watch', zh: '双守候', es: 'Doble escucha', o: 36, s: 4, b: [10, 1], c: ONOFF},
+        {id: 'dualWatch', en: 'Dual Watch', zh: '双守', es: 'Doble escucha', o: 36, s: 4, b: [10, 1], c: ONOFF},
         {id: 'sqlVhf', en: 'VHF squelch', zh: 'VHF静噪', es: 'Squelch VHF', o: 98, s: 1, n: [1, 21], f: (v) => `${(v - 1) * 5}%`},
         {id: 'sql220', en: '220 squelch', zh: '220静噪', es: 'Squelch 220', o: 99, s: 1, n: [1, 21], f: (v) => `${(v - 1) * 5}%`},
         {id: 'sqlUhf', en: 'UHF squelch', zh: 'UHF静噪', es: 'Squelch UHF', o: 100, s: 1, n: [1, 21], f: (v) => `${(v - 1) * 5}%`},
