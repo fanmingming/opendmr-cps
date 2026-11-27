@@ -6,7 +6,7 @@ import {Codeplug, MODES, P25_NAC_ANY, NXDN_RAN_MAX, M17_CAN_MAX, CALL_TYPES, POW
     TA_TX, APRS_CONFIGS_MAX, newAprsConfig, CustomDataDamaged, aprsSymbolChoices, aprsSymbolOf} from './codeplug/codeplug.js';
 import * as L from './codeplug/layout.js';
 import {RadioLink, SPEED_MAX, SPEED_MIN, SPEED_SETTING_KEY, radioBaud} from './radio/link.js';
-import {GROUPS, SETTINGS, SETTINGS_SIZE} from './codeplug/settings.js';
+import {GROUPS, SETTINGS, SETTINGS_SIZE, DTMF_DURATIONS_SIZE} from './codeplug/settings.js';
 import {language} from './i18n.js';
 import {VERSION} from './version.js';
 import * as SAT from './codeplug/satellites.js';
@@ -1436,6 +1436,8 @@ function viewDmrIds(main) {
 
 /* ---- the radio's own settings (its menus) ---- */
 
+let settingsGroup = GROUPS[0].key; // the group the Radio settings page shows
+
 function viewRadioSettings(main) {
     const s = codeplug.settings;
     const l = language();
@@ -1445,12 +1447,19 @@ function viewRadioSettings(main) {
         if (l === 'es') return x[2] ?? x[0];
         return x[0];
     };
-    main.append(pageHead(t('radioSettings')));
+    const groupName = (g) => (l === 'zh' ? g.zh : (l === 'es' ? (g.es ?? g.en) : g.en));
+    // one group at a time, chosen in the page head
+    const seg = el('span', {class: 'sms-seg'},
+        ...GROUPS.map((g) => el('button', {class: settingsGroup === g.key ? 'on' : '', onclick: () => {
+            settingsGroup = g.key;
+            render();
+        }}, groupName(g))));
+    main.append(pageHead(t('radioSettings'), s.valid ? seg : null));
     if (!s.valid) {
         main.append(el('div', {class: 'card empty'}, t('settingsInvalid')));
         return;
     }
-    const grid = el('div', {class: 'settings-grid'});
+    const grid = el('div', {class: 'settings-page'});
     const controls = [];
 
     function control(item) {
@@ -1498,7 +1507,7 @@ function viewRadioSettings(main) {
         }
     }
 
-    for (const g of GROUPS) {
+    for (const g of GROUPS.filter((x) => x.key === settingsGroup)) {
         const rows = el('div', {class: 'set-rows'});
         for (const item of g.items) {
             const box = el('div', {class: 'set-control'});
@@ -1506,7 +1515,7 @@ function viewRadioSettings(main) {
             controls.push({item, row, box});
             rows.append(row);
         }
-        grid.append(el('div', {class: 'card set-card'}, el('div', {class: 'card-head'}, el('h3', {}, l === 'zh' ? g.zh : (l === 'es' ? (g.es ?? g.en) : g.en))), rows));
+        grid.append(el('div', {class: 'card set-card'}, el('div', {class: 'card-head'}, el('h3', {}, groupName(g))), rows));
     }
     main.append(el('div', {class: 'settings-scroll'}, grid));
     refresh();
@@ -3357,6 +3366,9 @@ async function writeRadio() {
         const ranges = L.ownedRanges(codeplug.channelsPerZone);
         if (codeplug.settings.dirty && codeplug.settings.valid) { // the radio's settings only when changed here
             ranges.push([SETTINGS, SETTINGS + SETTINGS_SIZE]);
+        }
+        if (codeplug.settings.dtmfDirty) { // the DTMF timing: else as the radio has it
+            ranges.push([L.DTMF_DURATIONS, L.DTMF_DURATIONS + DTMF_DURATIONS_SIZE]);
         }
         ranges.push(...codeplug.customRanges); // the satellites, when changed
         for (const [a, b] of ranges) {
