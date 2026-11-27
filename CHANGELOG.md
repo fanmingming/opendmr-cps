@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Radio settings: Dual Watch on / off (Radio group), and the settings page scrolls inside its panel.
+  电台设置：双守开关（电台组）；设置页在面板内滚动。
 - Toolbar: below 900 px it no longer overflows: the buttons split into two rows at the group division, always visible.
   Row 1: brand + New / Open / Save / CSV. Row 2: cable speed + Connect / Read / Write and the language.
   工具栏：900 px 以下不再横向溢出：按钮按分组分成两行，始终可见。第一行：品牌 + 新建 / 打开 / 保存 / CSV；
