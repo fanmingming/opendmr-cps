@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Radio settings: Dual Watch on / off (Radio group), and the settings page scrolls inside its panel.
+  电台设置：双守开关（电台组）；设置页在面板内滚动。
+- Toolbar: below 900 px it no longer overflows: the buttons split into two rows at the group division, always visible.
+  Row 1: brand + New / Open / Save / CSV. Row 2: cable speed + Connect / Read / Write and the language.
+  工具栏：900 px 以下不再横向溢出：按钮按分组分成两行，始终可见。第一行：品牌 + 新建 / 打开 / 保存 / CSV；
+  第二行：写频线速度 + 连接 / 读取 / 写入和语言。
 - Radio settings: the DTMF timing ([OpenDMR #177](https://github.com/va3bpf/OpenDMR/issues/177)): digits a second,
   the delay before the first digit, the first digit and * / # longer, the hold after the last one. A codeplug from
   another tool can have a slow rate there (1 or 2 digits a second: a node number takes 4 - 9 s); 5 digits a second
@@ -11,6 +17,9 @@
   按电台实际采用的值显示。
 - Radio settings: one group a page (General, Radio, Display, Sound, APRS, DTMF), chosen at the top.
   电台设置：每组一页（通用、电台、显示、声音、APRS、DTMF），在页面顶部切换。
+- DCS: D346 in the tone lists, not D345 (not a DCS code: the radio sent no valid code with it); D345 in a codeplug
+  or a CSV file is read as D346 ([OpenDMR #206](https://github.com/va3bpf/OpenDMR/issues/206)).
+  DCS：亚音列表里是 D346，不是 D345（D345 不是 DCS 码，电台用它发不出有效的码）；码表或 CSV 里的 D345 读成 D346。
 
 ## 0.13.0 (2026-11-24)
 
